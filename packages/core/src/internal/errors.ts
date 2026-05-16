@@ -10,11 +10,13 @@ export const enum ErrorCode {
   DB_DELETE_FAILED = "DB_DELETE_FAILED",
   DB_MIGRATION_FAILED = "DB_MIGRATION_FAILED",
   DB_QUOTA_EXCEEDED = "DB_QUOTA_EXCEEDED",
+  DB_VALIDATION_FAILED = "DB_VALIDATION_FAILED",
 
   // Sync errors
   SYNC_INIT_FAILED = "SYNC_INIT_FAILED",
   SYNC_APPLY_FAILED = "SYNC_APPLY_FAILED",
   SYNC_ENCODE_FAILED = "SYNC_ENCODE_FAILED",
+  SYNC_VALIDATION_FAILED = "SYNC_VALIDATION_FAILED",
 
   // Network errors
   NETWORK_SIGNALING_FAILED = "NETWORK_SIGNALING_FAILED",
@@ -64,5 +66,20 @@ export class ZerithDBError extends Error {
 
   override toString(): string {
     return `${this.name} [${this.code}]: ${this.message}`;
+  }
+}
+
+export class SchemaValidationError extends ZerithDBError {
+  public readonly issues: ReadonlyArray<{ path: Array<string | number | symbol>; message: string }>;
+
+  constructor(
+    code: ErrorCode,
+    message: string,
+    issues: Array<{ path: Array<string | number | symbol>; message: string }>,
+    options?: ErrorOptions
+  ) {
+    super(code, message, options);
+    this.name = "SchemaValidationError";
+    this.issues = issues;
   }
 }

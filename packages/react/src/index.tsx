@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { createApp } from "zerithdb-sdk";
-import type { ZerithDBApp, ZerithDBConfig, QueryFilter } from "zerithdb-sdk";
+import type { ZerithDBApp, ZerithDBConfig, QueryFilter, CollectionOptions} from "zerithdb-sdk";
 import { liveQuery } from "dexie";
 
 const ZerithContext = createContext<ZerithDBApp | null>(null);
@@ -45,7 +45,7 @@ function useDeepCompareMemoize<T>(value: T) {
  * Automatically updates when local or remote (P2P) changes occur.
  * @param collectionName The name of the collection to query
  * @param filter A MongoDB-style query filter. Must be JSON-serializable.
- */
+ **/
 export function useQuery<T extends Record<string, any>>(collectionName: string, filter: QueryFilter<T> = {}) {
   const app = useZerith();
   const [data, setData] = useState<T[]>([]);
@@ -142,3 +142,52 @@ export function useAuth() {
 
   return { identity, signIn, signOut };
 }
+
+/**
+ * React hook for a schema-validated collection.
+ * Provides the same API as useQuery but adds validation error state.
+ **/
+export function useValidatedQuery<T extends Record<string, any>>(
+  collectionName: string,
+  options?: CollectionOptions<T>
+) {
+  const app = useZerith() as ZerithDBApp;
+  const [validationErrors, setValidationErrors] = useState<
+    Array<{ path: Array<string | number | symbol>; message: string }>
+  >([]);
+
+  // Get the schema-validated collection (registers schema on first call)
+  const collection = useMemo(
+    () => app.db<T>(collectionName, options),
+    [app, collectionName, JSON.stringify(options?.validation?.mode)]
+  );
+
+  // Listen for remote validation errors from sync engine
+  useEffect(() => {
+    const handler = (event: {
+      collectionName: string;
+      issues: Array<{ path: Array<string | number | symbol>; message: string }>;
+    }) => {
+      if (event.collectionName === collectionName) {
+        setValidationErrors(event.issues);
+      }
+    };
+    app.sync.on("validation:error", handler);
+    return () => {
+      app.sync.off("validation:error", handler);
+    };
+  }, [app, collectionName]);
+
+  const { data, loading, error } = useQuery<T>(collectionName);
+
+  const insert = async (item: Partial<T>) => {
+    return collection.insert(item as T);
+  };
+
+  const remove = async (filter: any) => {
+    return collection.delete(filter);
+  };
+
+  return { data, loading, error, validationErrors, insert, remove };
+}
+

@@ -1,4 +1,5 @@
-import type { ZerithDBConfig } from "zerithdb-core";
+import type { ZerithDBConfig, CollectionOptions } from "zerithdb-core";
+import { ValidatorRegistry } from "zerithdb-core";
 import { DbClient, CollectionClient } from "./db-client.js";
 import { SyncEngine } from "./sync-engine.js";
 import { AuthManager } from "./auth-manager.js";
@@ -22,7 +23,10 @@ export interface ZerithDBApp {
    * const all = await todos.find({});
    * ```
    */
-  db<T extends Record<string, any> = Record<string, any>>(name: string): CollectionClient<T>;
+  db<T extends Record<string, any> = Record<string, any>>(
+    name: string,
+    options?: CollectionOptions<T>
+  ): CollectionClient<T>;
 
   /** CRDT sync engine — manages Yjs documents and P2P update propagation */
   sync: SyncEngine;
@@ -87,17 +91,32 @@ export function createApp(config: ZerithDBConfig): ZerithDBApp {
   };
 
   const auth = new AuthManager(resolvedConfig);
+  const validatorRegistry = new ValidatorRegistry();
+
   const db = new DbClient(resolvedConfig);
+  db.setValidatorRegistry(validatorRegistry);
+
   const network = new NetworkManager(resolvedConfig, auth);
-  const sync = new SyncEngine(resolvedConfig, db, network);
+  const sync = new SyncEngine(resolvedConfig, db, network, validatorRegistry);
 
   const collectionCache = new Map<string, CollectionClient<any>>();
 
   return {
     config: Object.freeze(resolvedConfig),
 
-    db<T extends Record<string, any>>(name: string): CollectionClient<T> {
+    db<T extends Record<string, any>>(
+      name: string,
+      options?: CollectionOptions<T>
+    ): CollectionClient<T> {
       if (!collectionCache.has(name)) {
+        // Register schema BEFORE creating/retrieving the collection handle
+        if (options?.validation) {
+          validatorRegistry.register(
+            name,
+            options.validation.schema,
+            options.validation.mode ?? "strict"
+          );
+        }
         collectionCache.set(name, db.collection(name));
       }
       // biome-ignore lint: cache guarantees this is defined

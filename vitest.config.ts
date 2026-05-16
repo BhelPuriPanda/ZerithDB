@@ -1,6 +1,15 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "zerithdb-core": "/packages/core/src/index.ts",
+      "zerithdb-db": "/packages/db/src/index.ts",
+      "zerithdb-sync": "/packages/sync/src/index.ts",
+      "zerithdb-network": "/packages/network/src/index.ts",
+      "zerithdb-auth": "/packages/auth/src/index.ts",
+    },
+  },
   test: {
     globals: true,
     environment: "happy-dom",

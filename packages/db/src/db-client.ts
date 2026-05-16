@@ -6,24 +6,63 @@ import type {
   QueryFilter,
   InsertResult,
   UpdateSpec,
+  ValidatorRegistry,
+  ValidationResult,
 } from "zerithdb-core";
-import { ZerithDBError, ErrorCode } from "zerithdb-core";
+import { ZerithDBError, ErrorCode, SchemaValidationError } from "zerithdb-core";
+
+class ZerithDBDexie extends Dexie {
+  private readonly insuredTableNames = new Set<string>();
+
+  constructor(appId: string) {
+    super(`zerithdb_${appId}`);
+  }
+
+  ensureCollection(name: string): Table {
+    if (this.insuredTableNames.has(name)) {
+      return this.table(name);
+    }
+
+    this.insuredTableNames.add(name);
+    const version = (this.verno || 0) + this.insuredTableNames.size;
+    const schema: Record<string, string> = {};
+    for (const tableName of this.insuredTableNames) {
+      schema[tableName] = "_id, _createdAt, _updatedAt";
+    }
+    
+    this.version(version).stores(schema);
+    return this.table(name);
+  }
+}
 
 /**
- * A handle to a single named collection within the ZerithDB local database.
- * All operations are async and backed by IndexedDB.
+ * Client for a specific collection.
+ * Provides CRUD operations with optional schema validation.
+ *
+ * @example
+ * ```typescript
+ * const todos = db.collection<Todo>("todos");
+ * await todos.insert({ text: "Buy milk", done: false });
+ * ```
  */
 export class CollectionClient<T extends Record<string, any> = Record<string, any>> {
   constructor(
-    private readonly table: Table<Document<T>>,
-    private readonly collectionName: string
-  ) {}
+    private readonly dexie: ZerithDBDexie,
+    private readonly collectionName: string,
+    private readonly validatorRegistry?: ValidatorRegistry,
+    private readonly onValidationError?: (error: SchemaValidationError) => void
+  ) { }
+
+  private get table(): Table<Document<T>> {
+    return this.dexie.table(this.collectionName);
+  }
 
   /**
    * Insert a new document into the collection.
    * Automatically assigns `_id`, `_createdAt`, and `_updatedAt`.
    */
   async insert(document: T): Promise<InsertResult> {
+    this.runValidation(document);
     const now = Date.now();
     const id = uuidv7();
     const doc: Document<T> = {
@@ -49,6 +88,10 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
    * Insert multiple documents in a single atomic operation.
    */
   async insertMany(documents: T[]): Promise<InsertResult[]> {
+    // Atomic: validate ALL documents before writing any
+    for (let i = 0; i < documents.length; i++) {
+      this.runValidation(documents[i], i);
+    }
     const now = Date.now();
     const docs = documents.map((doc) => ({
       ...doc,
@@ -116,10 +159,30 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
       const matches = await this.find(filter);
       const now = Date.now();
 
+<<<<<<< HEAD
       await this.table.bulkPut(matches.map((doc) => this.applyUpdateSpec(doc, spec, now)));
+=======
+      // Validate each merged document before writing.
+      // NOTE: Currently only previews $set merges. Future operators ($unset,
+      // $push, $pull, nested dot-path updates) will need their own merge
+      // preview logic to produce an accurate validation candidate.
+      for (const doc of matches) {
+        const merged = { ...doc, ...(spec.$set ?? {}), _updatedAt: now };
+        this.runValidation(merged);
+      }
+
+      await this.table.bulkPut(
+        matches.map((doc) => ({
+          ...doc,
+          ...(spec.$set ?? {}),
+          _updatedAt: now,
+        }))
+      );
+>>>>>>> f59b043 (feat(validation): add centralized schema validation system)
 
       return matches.length;
     } catch (err) {
+      if (err instanceof SchemaValidationError) throw err;
       throw new ZerithDBError(
         ErrorCode.DB_WRITE_FAILED,
         `Failed to update documents in "${this.collectionName}"`,
@@ -208,31 +271,40 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
     }
     return true;
   }
-}
 
-class ZerithDBDexie extends Dexie {
-  private readonly tableMap = new Map<string, Table>();
+  /**
+   * Validate a document against the collection's registered schema.
+   * Behavior depends on the validation mode:
+   *  - "strict": throws SchemaValidationError
+   *  - "warn": calls onValidationError callback, does NOT throw
+   *  - "off" / no schema: no-op
+   */
+  private runValidation(data: unknown, batchIndex?: number): void {
+    if (!this.validatorRegistry) return;
 
-  constructor(appId: string) {
-    super(`zerithdb_${appId}`);
-  }
+    const result = this.validatorRegistry.validate(this.collectionName, data);
+    if (result.valid) return;
 
-  ensureCollection(name: string): Table {
-    if (!this.tableMap.has(name)) {
-      // Dexie requires version upgrade to add tables — we use a dynamic schema pattern
-      const version = (this.verno ?? 0) + 1;
-      const existingTableNames = this.tableMap.keys();
-      const schema: Record<string, string> = { [name]: "_id, _createdAt, _updatedAt" };
-      for (const existingName of existingTableNames) {
-        schema[existingName] = "_id, _createdAt, _updatedAt";
-      }
-      this.version(version).stores(schema);
-      this.tableMap.set(name, this.table(name));
+    const prefix = batchIndex !== undefined
+      ? `Batch validation failed at index ${batchIndex} in`
+      : `Validation failed in`;
+
+    const error = new SchemaValidationError(
+      ErrorCode.DB_VALIDATION_FAILED,
+      `${prefix} "${this.collectionName}": ${result.issues.map(i => i.message).join(", ")}`,
+      result.issues
+    );
+
+    // Always notify the callback (for both "strict" and "warn")
+    this.onValidationError?.(error);
+
+    // Only throw in "strict" mode
+    if (result.shouldThrow) {
+      throw error;
     }
-    // biome-ignore lint: map guarantees this is defined
-    return this.tableMap.get(name)!;
   }
 }
+
 
 /**
  * Internal database client. Wraps Dexie and manages collection instances.
@@ -242,15 +314,24 @@ export class DbClient {
   private readonly dexie: ZerithDBDexie;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private readonly collections = new Map<string, CollectionClient<any>>();
+  private validatorRegistry?: ValidatorRegistry;
 
   constructor(config: ZerithDBConfig) {
     this.dexie = new ZerithDBDexie(config.appId);
   }
 
+  /** Set the shared validator registry. Called by the SDK during initialization. */
+  setValidatorRegistry(registry: ValidatorRegistry): void {
+    this.validatorRegistry = registry;
+  }
+
   collection<T extends Record<string, any>>(name: string): CollectionClient<T> {
     if (!this.collections.has(name)) {
-      const table = this.dexie.ensureCollection(name);
-      this.collections.set(name, new CollectionClient<T>(table as Table<Document<T>>, name));
+      this.dexie.ensureCollection(name);
+      this.collections.set(
+        name,
+        new CollectionClient<T>(this.dexie, name, this.validatorRegistry)
+      );
     }
     return this.collections.get(name) as CollectionClient<T>;
   }

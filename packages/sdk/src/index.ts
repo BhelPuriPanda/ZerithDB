@@ -2,6 +2,11 @@
 export { createApp } from "./create-app.js";
 export type { ZerithDBApp } from "./create-app.js";
 
+// Re-export core components with proper typing
+export { AuthManager } from "./auth-manager.js";
+export { SyncEngine } from "./sync-engine.js";
+export { NetworkManager } from "./network-manager.js";
+
 // Re-export commonly used types from zerithdb-core
 export type {
   ZerithDBConfig,
@@ -17,6 +22,10 @@ export type {
   Identity,
   PeerInfo,
   SyncState,
+  CollectionOptions,
+  CollectionSchemaOptions,
+  ValidationMode,
+  SchemaLike,
 } from "zerithdb-core";
 
-export { ZerithDBError, ErrorCode } from "zerithdb-core";
+export { ZerithDBError, ErrorCode, SchemaValidationError } from "zerithdb-core";

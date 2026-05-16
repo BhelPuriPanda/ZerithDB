@@ -1,7 +1,7 @@
 import * as Y from "yjs";
 import { IndexeddbPersistence } from "y-indexeddb";
+import { EventEmitter, ValidatorRegistry } from "zerithdb-core";
 import type { ZerithDBConfig, SyncState } from "zerithdb-core";
-import { EventEmitter } from "zerithdb-core";
 import type { DbClient } from "zerithdb-db";
 import type { NetworkManager } from "zerithdb-network";
 
@@ -9,6 +9,11 @@ type SyncEvents = {
   "state:change": SyncState;
   "update:local": { collectionName: string; update: Uint8Array };
   "update:remote": { collectionName: string; update: Uint8Array; fromPeer: string };
+  "validation:error": {
+    collectionName: string;
+    fromPeer: string;
+    issues: Array<{ path: Array<string | number | symbol>; message: string }>;
+  };
 };
 
 /**
@@ -25,7 +30,8 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
   constructor(
     private readonly config: ZerithDBConfig,
     private readonly db: DbClient,
-    private readonly network: NetworkManager
+    private readonly network: NetworkManager,
+    private readonly validatorRegistry?: ValidatorRegistry
   ) {
     super();
     this.onPeerUpdate = this.onPeerUpdate.bind(this);
@@ -95,7 +101,48 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
    */
   applyRemoteUpdate(collectionName: string, update: Uint8Array, fromPeer: string): void {
     const doc = this.getDoc(collectionName);
-    Y.applyUpdate(doc, update, "remote");
+    const dataMap = doc.getMap(collectionName);
+
+    // Set up observer to capture changed keys BEFORE applying update.
+    // This allows us to validate ONLY the documents that actually changed,
+    // avoiding expensive collection-wide scans on every update.
+    const changedKeys = new Set<string>();
+    let observing = false;
+
+    if (this.validatorRegistry?.has(collectionName)) {
+      observing = true;
+      const observer = (event: Y.YMapEvent<any>) => {
+        for (const [key] of event.changes.keys) {
+          changedKeys.add(key);
+        }
+      };
+      dataMap.observe(observer);
+
+      // CRDT convergence is non-negotiable — always apply.
+      // Observer fires synchronously during applyUpdate.
+      Y.applyUpdate(doc, update, "remote");
+      dataMap.unobserve(observer);
+    } else {
+      Y.applyUpdate(doc, update, "remote");
+    }
+
+    // Post-merge validation (warn-only, never blocks merge)
+    if (observing && changedKeys.size > 0) {
+      for (const key of changedKeys) {
+        const value = dataMap.get(key);
+        if (value === undefined) continue; // deleted key
+
+        const result = this.validatorRegistry!.validateRemote(collectionName, value);
+        if (!result.valid) {
+          this.emit("validation:error", {
+            collectionName,
+            fromPeer,
+            issues: result.issues,
+          });
+        }
+      }
+    }
+
     this.emit("update:remote", { collectionName, update, fromPeer });
   }
 

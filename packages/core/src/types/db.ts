@@ -17,16 +17,24 @@ export type Document<T extends Record<string, any> = Record<string, any>> = T & 
  */
 export type QueryFilter<T extends Record<string, any>> = {
   [K in keyof T]?:
-    | T[K]
-    | { $eq: T[K] }
-    | { $ne: T[K] }
-    | { $gt: T[K] }
-    | { $gte: T[K] }
-    | { $lt: T[K] }
-    | { $lte: T[K] }
-    | { $in: T[K][] }
-    | { $nin: T[K][] };
+  | T[K]
+  | { $eq: T[K] }
+  | { $ne: T[K] }
+  | { $gt: T[K] }
+  | { $gte: T[K] }
+  | { $lt: T[K] }
+  | { $lte: T[K] }
+  | { $in: T[K][] }
+  | { $nin: T[K][] };
 };
+
+import type { CollectionSchemaOptions } from "./validation.js";
+
+/** Options when creating a collection handle */
+export interface CollectionOptions<T extends Record<string, any> = Record<string, any>> {
+  /** Optional schema validation */
+  validation?: CollectionSchemaOptions<T>;
+}
 
 /** Partial update spec — only specified fields are modified */
 export type UpdateSpec<T extends Record<string, any>> = {

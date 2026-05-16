@@ -3,15 +3,14 @@ import "fake-indexeddb/auto";
 import { DbClient } from "../../packages/db/src/db-client.js";
 import type { ZerithDBConfig } from "../../packages/core/src/index.js";
 
-const testConfig: ZerithDBConfig = {
-  appId: "test-db-" + Math.random().toString(36).slice(2),
-};
-
 describe("DbClient — CollectionClient", () => {
   let db: DbClient;
 
   beforeEach(() => {
-    db = new DbClient(testConfig);
+    const config: ZerithDBConfig = {
+      appId: "test-db-" + Math.random().toString(36).slice(2),
+    };
+    db = new DbClient(config);
   });
 
   afterEach(async () => {
