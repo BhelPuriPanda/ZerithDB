@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState } from "react";
 import dynamic from "next/dynamic";
 import { EXAMPLES } from "./examples";
-import { motion, AnimatePresence } from "framer-motion";
-import { Code2, Play, Sparkles, ChevronRight } from "lucide-react";
+import { Code2, Sparkles, ChevronRight } from "lucide-react";
 
 // Lazy load the editor to keep initial bundle size small
 const CodeEditor = dynamic(() => import("./Editor"), {

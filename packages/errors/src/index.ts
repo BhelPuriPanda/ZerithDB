@@ -38,6 +38,7 @@ export const enum ErrorCode {
   SDK_UNSUPPORTED_ENVIRONMENT = "SDK_UNSUPPORTED_ENVIRONMENT",
 
   // Utility / Internal errors
+  // Utility and core errors
   ASSERTION_FAILED = "ASSERTION_FAILED",
   INVALID_HEX_STRING = "INVALID_HEX_STRING",
   TIMEOUT_EXCEEDED = "TIMEOUT_EXCEEDED",
