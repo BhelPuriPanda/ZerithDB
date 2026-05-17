@@ -82,5 +82,6 @@ export class SchemaValidationError extends ZerithDBError {
     super(code, message, options);
     this.name = "SchemaValidationError";
     this.issues = issues;
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }

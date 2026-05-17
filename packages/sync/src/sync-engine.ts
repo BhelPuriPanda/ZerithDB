@@ -203,18 +203,40 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
       }
     }
 
-    await this.handleRemoteUpdate(
-      collectionName,
-      finalUpdate,
-      fromPeer
-    );
+    const doc = this.getDoc(collectionName);
+    const dataMap = doc.getMap(collectionName);
+    const changedKeys = new Set<string>();
+    let observing = false;
+
+    const observer = (event: Y.YMapEvent<any>) => {
+      for (const [key] of event.changes.keys) {
+        changedKeys.add(key);
+      }
+    };
 
     if (this.validatorRegistry?.has(collectionName)) {
-      const doc = this.getDoc(collectionName);
-      const dataMap = doc.getMap(collectionName);
+      observing = true;
+      dataMap.observe(observer);
+    }
 
-      for (const [, value] of dataMap.entries()) {
-        const result = this.validatorRegistry.validateRemote(
+    try {
+      await this.handleRemoteUpdate(
+        collectionName,
+        finalUpdate,
+        fromPeer
+      );
+    } finally {
+      if (observing) {
+        dataMap.unobserve(observer);
+      }
+    }
+
+    if (observing && changedKeys.size > 0) {
+      for (const key of changedKeys) {
+        const value = dataMap.get(key);
+        if (value === undefined) continue; // deleted key
+
+        const result = this.validatorRegistry!.validateRemote(
           collectionName,
           value
         );

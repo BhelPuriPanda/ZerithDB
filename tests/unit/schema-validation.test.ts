@@ -47,6 +47,47 @@ describe("Schema Validation Infrastructure", () => {
       registry.register("users", schema1, "strict");
       expect(() => registry.register("users", schema2, "strict")).toThrow(/Schema conflict/);
     });
+
+    it("should allow updating a schema reference and mode for a collection", () => {
+      const registry = new ValidatorRegistry();
+      const schema1 = z.object({ name: z.string() });
+      const schema2 = z.object({ age: z.number() });
+
+      registry.register("users", schema1, "strict");
+      expect(() => registry.update("users", schema2, "warn")).not.toThrow();
+
+      const reg = registry.get("users");
+      expect(reg?.schema).toBe(schema2);
+      expect(reg?.mode).toBe("warn");
+    });
+
+    it("should default validation mode to strict when updating/registering and mode is omitted", () => {
+      const registry = new ValidatorRegistry();
+      const schema1 = z.object({ name: z.string() });
+      const schema2 = z.object({ age: z.number() });
+
+      registry.register("users", schema1);
+      expect(registry.get("users")?.mode).toBe("strict");
+
+      registry.update("users", schema2);
+      expect(registry.get("users")?.mode).toBe("strict");
+    });
+
+    it("should allow removing a schema for a collection", () => {
+      const registry = new ValidatorRegistry();
+      const schema = z.object({ name: z.string() });
+
+      registry.register("users", schema, "strict");
+      expect(registry.has("users")).toBe(true);
+
+      const removed = registry.remove("users");
+      expect(removed).toBe(true);
+      expect(registry.has("users")).toBe(false);
+      expect(registry.get("users")).toBeUndefined();
+
+      const removedAgain = registry.remove("users");
+      expect(removedAgain).toBe(false);
+    });
   });
 
   describe("Local Writes (DbClient)", () => {
@@ -136,6 +177,42 @@ describe("Schema Validation Infrastructure", () => {
       const [doc] = await todos.find({});
       expect(doc?.text).toBe("Original");
     });
+
+    it("should throw SchemaValidationError on update() failure in strict mode", async () => {
+      registry.register("todos", TodoSchema, "strict");
+      const todos = db.collection("todos");
+
+      await todos.insert({ text: "Original", done: false });
+
+      try {
+        await todos.update({ text: "Original" }, { $set: { text: "ab" } });
+        expect.fail("Should have thrown");
+      } catch (err: any) {
+        expect(err.name).toBe("SchemaValidationError");
+        expect(err.code).toBe(ErrorCode.DB_VALIDATION_FAILED);
+      }
+    });
+
+    it("should preserve _id and _createdAt metadata fields during update()", async () => {
+      registry.register("todos", TodoSchema, "strict");
+      const todos = db.collection("todos");
+
+      const insertResult = await todos.insert({ text: "Original", done: false });
+      const initialDoc = await todos.findById(insertResult.id);
+      expect(initialDoc).toBeDefined();
+
+      const initialCreatedAt = initialDoc!._createdAt;
+      const initialId = initialDoc!._id;
+
+      // Perform a valid update
+      await todos.update({ text: "Original" }, { $set: { text: "Updated" } });
+
+      const updatedDoc = await todos.findById(insertResult.id);
+      expect(updatedDoc).toBeDefined();
+      expect(updatedDoc!._id).toBe(initialId);
+      expect(updatedDoc!._createdAt).toBe(initialCreatedAt);
+      expect(updatedDoc!._updatedAt).toBeGreaterThanOrEqual(initialCreatedAt);
+    });
   });
 
   describe("Remote Sync (SyncEngine)", () => {
@@ -183,7 +260,7 @@ describe("Schema Validation Infrastructure", () => {
       tempMap.set("user-remote", invalidData);
       const update = Y.encodeStateAsUpdate(tempDoc);
 
-      sync.applyRemoteUpdate("users", update, "peer-123");
+      await sync.applyRemoteUpdate("users", update, "peer-123");
 
       // Convergence
       expect(dataMap.get("user-remote")).toEqual(invalidData);
@@ -207,7 +284,7 @@ describe("Schema Validation Infrastructure", () => {
       tempMap.set("user-2", { username: "bob", age: 40 });
       const update = Y.encodeStateAsUpdate(tempDoc);
 
-      sync.applyRemoteUpdate("users", update, "peer-1");
+      await sync.applyRemoteUpdate("users", update, "peer-1");
 
       // Should have only validated the newly added user-2
       expect(validateSpy).toHaveBeenCalledTimes(1);

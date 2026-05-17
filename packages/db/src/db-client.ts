@@ -143,19 +143,22 @@ export class CollectionClient<
     try {
       const matches = await this.find(filter);
       const now = Date.now();
+      const updatedDocs = matches.map((doc) =>
+        this.applyUpdateSpec(doc, spec, now)
+      );
 
-      for (const doc of matches) {
-        const merged = this.applyUpdateSpec(doc, spec, now);
-        this.runValidation(merged);
+      for (const doc of updatedDocs) {
+        this.runValidation(doc);
       }
 
-      await this.table.bulkPut(
-        matches.map((doc) => this.applyUpdateSpec(doc, spec, now)),
-      );
+      await this.table.bulkPut(updatedDocs);
 
       return matches.length;
     } catch (err) {
-      if (err instanceof SchemaValidationError) {
+      if (
+        err instanceof SchemaValidationError ||
+        (err instanceof Error && err.name === "SchemaValidationError")
+      ) {
         throw err;
       }
 

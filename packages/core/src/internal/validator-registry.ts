@@ -38,7 +38,7 @@ export class ValidatorRegistry {
      * **Throws** if a *different* schema reference is registered for the same
      * collection name. Uses `===` identity — not deep comparison.
      */
-    register<T>(collectionName: string, schema: SchemaLike<T>, mode: ValidationMode): void {
+    register<T>(collectionName: string, schema: SchemaLike<T>, mode: ValidationMode = "strict"): void {
         const existing = this.validators.get(collectionName);
         if (existing) {
             if (existing.schema !== schema) {
@@ -51,6 +51,23 @@ export class ValidatorRegistry {
             return; // Same schema re-registered — no-op (safe for React/HMR)
         }
         this.validators.set(collectionName, { schema, mode, collectionName });
+    }
+
+    /**
+     * Update the registered schema and validation mode for a collection.
+     * Replaces any existing registration by reusing register() logic internally.
+     */
+    update<T>(collectionName: string, schema: SchemaLike<T>, mode: ValidationMode = "strict"): void {
+        this.remove(collectionName);
+        this.register(collectionName, schema, mode);
+    }
+
+    /**
+     * Remove the registered schema for a collection.
+     * Returns true if a registry was successfully deleted, false otherwise.
+     */
+    remove(collectionName: string): boolean {
+        return this.validators.delete(collectionName);
     }
 
     /** Get the registered validator for a collection, or undefined if none. */
