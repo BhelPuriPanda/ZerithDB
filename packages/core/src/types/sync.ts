@@ -30,6 +30,16 @@ export interface AwarenessState {
   [key: string]: unknown;
 }
 
+/** Low-latency, non-persistent peer state shared over the WebRTC mesh. */
+export interface EphemeralPeerState<
+  TState extends Record<string, unknown> = Record<string, unknown>,
+> {
+  peerId: string;
+  state: TState;
+  sequence: number;
+  updatedAt: number;
+}
+
 export interface SyncPlugin {
   id: string;
   version: number;
@@ -48,4 +58,38 @@ export interface SyncPlugin {
     collectionName: string,
     update: Uint8Array
   ) => Uint8Array | null | Promise<Uint8Array | null>;
+}
+
+export interface MediaStreamTrackMetadata {
+  trackId: string;
+  kind: "audio" | "video";
+  label: string;
+  enabled: boolean;
+  muted: boolean;
+  readyState: string;
+}
+
+export interface MediaStreamMetadata {
+  streamId: string;
+  peerId: string;
+  kind: "camera" | "screen" | "custom";
+  audioMuted: boolean;
+  videoMuted: boolean;
+  tracks: MediaStreamTrackMetadata[];
+  updatedAt: number;
+}
+
+export interface ActiveSpeakerState {
+  peerId: string;
+  updatedAt: number;
+  audioLevel?: number;
+  [key: string]: unknown;
+}
+
+export interface VideoParticipantState {
+  peerId: string;
+  muted: { audio: boolean; video: boolean };
+  streams: Record<string, MediaStreamMetadata>;
+  updatedAt: number;
+  activeSpeaker?: ActiveSpeakerState;
 }

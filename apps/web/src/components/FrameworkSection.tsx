@@ -52,7 +52,7 @@ export default function FrameworkSection() {
 
           {/* Astro Logo */}
           <div className="flex items-center gap-1 font-bold text-2xl tracking-tighter [filter:none]">
-            <span style={{ color: '#7c2d12' }}>astro</span>
+            <span style={{ color: "#7c2d12" }}>astro</span>
           </div>
 
           {/* Nuxt Logo */}

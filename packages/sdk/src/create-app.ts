@@ -46,10 +46,7 @@ export interface ZerithDBApp {
    * Create a local cloud backup adapter. The adapter exports configured
    * IndexedDB collections and uploads the JSON snapshot through the target.
    */
-  backup(
-    target: CloudBackupTarget,
-    options?: LocalCloudBackupOptions
-  ): LocalCloudBackupAdapter;
+  backup(target: CloudBackupTarget, options?: LocalCloudBackupOptions): LocalCloudBackupAdapter;
 
   /** Underlying app configuration */
   config: Readonly<ZerithDBConfig>;
@@ -140,12 +137,7 @@ export function createApp(config: ZerithDBConfig): ZerithDBApp {
   db.setValidatorRegistry(validatorRegistry);
 
   const network = new NetworkManager(resolvedConfig, auth);
-  const sync = new SyncEngine(
-    resolvedConfig,
-    db,
-    network,
-    validatorRegistry
-  );
+  const sync = new SyncEngine(resolvedConfig, db, network, validatorRegistry);
 
   let memoryCollector: MemoryCollector | null = null;
 
@@ -202,15 +194,8 @@ export function createApp(config: ZerithDBConfig): ZerithDBApp {
     auth,
     network,
 
-    backup(
-      target: CloudBackupTarget,
-      options?: LocalCloudBackupOptions
-    ): LocalCloudBackupAdapter {
-      const adapter = new LocalCloudBackupAdapter(
-        db,
-        target,
-        options
-      );
+    backup(target: CloudBackupTarget, options?: LocalCloudBackupOptions): LocalCloudBackupAdapter {
+      const adapter = new LocalCloudBackupAdapter(db, target, options);
 
       backupAdapters.add(adapter);
 
@@ -220,17 +205,11 @@ export function createApp(config: ZerithDBConfig): ZerithDBApp {
     async dispose(): Promise<void> {
       memoryCollector?.stop();
 
-      await Promise.all(
-        Array.from(backupAdapters).map((a) => a.stop())
-      );
+      await Promise.all(Array.from(backupAdapters).map((a) => a.stop()));
 
       backupAdapters.clear();
 
-      await Promise.all([
-        sync.dispose(),
-        network.dispose(),
-        db.dispose(),
-      ]);
+      await Promise.all([sync.dispose(), network.dispose(), db.dispose()]);
     },
   };
 }

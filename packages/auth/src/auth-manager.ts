@@ -188,13 +188,13 @@ export class AuthManager extends EventEmitter<AuthEvents> {
     try {
       const { recoverSecret } = await import("zerithdb-wasm-crypto");
       const privateKeyBytes = await recoverSecret(shards);
-      
+
       const publicKeyBytes = await ed.getPublicKeyAsync(privateKeyBytes);
       const identity = this.buildIdentity(publicKeyBytes);
-      
+
       this._identity = identity;
       this.privateKeyBytes = privateKeyBytes;
-      
+
       this.saveToStorage(privateKeyBytes, publicKeyBytes);
       this.emit("identity:change", identity);
       return identity;

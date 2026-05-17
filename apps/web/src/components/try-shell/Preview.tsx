@@ -45,7 +45,7 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
     const mockSDK = {
       createApp: (config: any) => {
         const appId = config?.appId || "demo-app";
-        
+
         return {
           appId,
           config,
@@ -53,20 +53,20 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
             insert: async (data: any | any[]) => {
               if (!memoryDB[collection]) memoryDB[collection] = [];
               const docs = Array.isArray(data) ? data : [data];
-              const docsWithId = docs.map(d => ({ 
-                ...d, 
+              const docsWithId = docs.map((d) => ({
+                ...d,
                 id: d.id || Math.random().toString(36).substr(2, 9),
-                _created: Date.now()
+                _created: Date.now(),
               }));
               memoryDB[collection].push(...docsWithId);
-              return Array.isArray(data) ? docsWithId.map(d => d.id) : docsWithId[0].id;
+              return Array.isArray(data) ? docsWithId.map((d) => d.id) : docsWithId[0].id;
             },
             find: async (filter: any = {}) => {
               const docs = memoryDB[collection] || [];
-              return docs.filter(doc => {
-                for (let key in filter) {
+              return docs.filter((doc) => {
+                for (const key in filter) {
                   const val = filter[key];
-                  if (typeof val === 'object' && val !== null) {
+                  if (typeof val === "object" && val !== null) {
                     if (val.$gt !== undefined && !(doc[key] > val.$gt)) return false;
                     if (val.$lt !== undefined && !(doc[key] < val.$lt)) return false;
                     if (val.$gte !== undefined && !(doc[key] >= val.$gte)) return false;
@@ -80,18 +80,20 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
             },
             findOne: async (filter: any) => {
               const docs = memoryDB[collection] || [];
-              return docs.find(doc => {
-                for (let key in filter) {
-                  if (doc[key] !== filter[key]) return false;
-                }
-                return true;
-              }) || null;
+              return (
+                docs.find((doc) => {
+                  for (const key in filter) {
+                    if (doc[key] !== filter[key]) return false;
+                  }
+                  return true;
+                }) || null
+              );
             },
             update: async (filter: any, update: any) => {
               const docs = memoryDB[collection] || [];
-              docs.forEach(doc => {
+              docs.forEach((doc) => {
                 let match = true;
-                for (let key in filter) {
+                for (const key in filter) {
                   if (doc[key] !== filter[key]) match = false;
                 }
                 if (match && update.$set) {
@@ -101,31 +103,33 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
             },
             remove: async (filter: any) => {
               if (!memoryDB[collection]) return;
-              memoryDB[collection] = memoryDB[collection].filter(doc => {
+              memoryDB[collection] = memoryDB[collection].filter((doc) => {
                 let match = true;
-                for (let key in filter) {
+                for (const key in filter) {
                   if (doc[key] !== filter[key]) match = false;
                 }
                 return !match;
               });
-            }
+            },
           }),
           sync: {
             enable: () => mockConsole.log("Sync enabled for", appId),
             disable: () => mockConsole.log("Sync disabled for", appId),
             status: () => "connected",
-            on: (event: string, cb: Function) => mockConsole.log("Attached listener for", event)
+            on: (event: string, cb: Function) => mockConsole.log("Attached listener for", event),
           },
           auth: {
-            getIdentity: () => ({ publicKey: "ed25519:mock_key_" + Math.random().toString(36).substr(2, 5) }),
+            getIdentity: () => ({
+              publicKey: "ed25519:mock_key_" + Math.random().toString(36).substr(2, 5),
+            }),
             signIn: async () => mockConsole.log("Signed in as anonymous user"),
-            signOut: async () => mockConsole.log("Signed out")
+            signOut: async () => mockConsole.log("Signed out"),
           },
           network: {
             getPeers: () => [],
-            isConnected: () => true
+            isConnected: () => true,
           },
-          dispose: async () => mockConsole.log("App disposed")
+          dispose: async () => mockConsole.log("App disposed"),
         };
       },
     };
@@ -144,7 +148,7 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
           }
         })();
       `;
-      
+
       const run = new Function("sdk", "console", functionBody);
       await run(mockSDK, mockConsole);
     } catch (err: any) {
@@ -188,24 +192,39 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
           <div className="text-gray-500 italic">Click "Run" to see the output...</div>
         )}
         {logs.map((log, i) => (
-          <div key={i} className="mb-2 last:mb-0 animate-in fade-in slide-in-from-left-1 duration-200">
+          <div
+            key={i}
+            className="mb-2 last:mb-0 animate-in fade-in slide-in-from-left-1 duration-200"
+          >
             <span className="text-gray-500 mr-2">[{new Date().toLocaleTimeString()}]</span>
             {log.type === "error" ? (
-              <span className="text-red-400">✖ {log.content.map((c: any) => 
-                typeof c === 'object' ? JSON.stringify(c, null, 2) : String(c)
-              ).join(' ')}</span>
+              <span className="text-red-400">
+                ✖{" "}
+                {log.content
+                  .map((c: any) => (typeof c === "object" ? JSON.stringify(c, null, 2) : String(c)))
+                  .join(" ")}
+              </span>
             ) : log.type === "warn" ? (
-              <span className="text-yellow-400">⚠ {log.content.map((c: any) => 
-                typeof c === 'object' ? JSON.stringify(c, null, 2) : String(c)
-              ).join(' ')}</span>
+              <span className="text-yellow-400">
+                ⚠{" "}
+                {log.content
+                  .map((c: any) => (typeof c === "object" ? JSON.stringify(c, null, 2) : String(c)))
+                  .join(" ")}
+              </span>
             ) : log.type === "info" ? (
-              <span className="text-blue-400">ℹ {log.content.map((c: any) => 
-                typeof c === 'object' ? JSON.stringify(c, null, 2) : String(c)
-              ).join(' ')}</span>
+              <span className="text-blue-400">
+                ℹ{" "}
+                {log.content
+                  .map((c: any) => (typeof c === "object" ? JSON.stringify(c, null, 2) : String(c)))
+                  .join(" ")}
+              </span>
             ) : (
-              <span className="text-green-400">› {log.content.map((c: any) => 
-                typeof c === 'object' ? JSON.stringify(c, null, 2) : String(c)
-              ).join(' ')}</span>
+              <span className="text-green-400">
+                ›{" "}
+                {log.content
+                  .map((c: any) => (typeof c === "object" ? JSON.stringify(c, null, 2) : String(c)))
+                  .join(" ")}
+              </span>
             )}
           </div>
         ))}

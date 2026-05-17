@@ -10,11 +10,7 @@ import type {
   ValidatorRegistry,
 } from "zerithdb-core";
 
-import {
-  ZerithDBError,
-  ErrorCode,
-  SchemaValidationError,
-} from "zerithdb-errors";
+import { ZerithDBError, ErrorCode, SchemaValidationError } from "zerithdb-errors";
 
 import { wrapIDBOperation } from "./internal/wrap-idb-operation.js";
 import type { BackupExportOptions, BackupSnapshot } from "./backup.js";
@@ -56,16 +52,12 @@ class ZerithDBDexie extends Dexie {
  * Client for a specific collection.
  * Provides CRUD operations with optional schema validation.
  */
-export class CollectionClient<
-  T extends Record<string, any> = Record<string, any>,
-> {
+export class CollectionClient<T extends Record<string, any> = Record<string, any>> {
   constructor(
     private readonly dexie: ZerithDBDexie,
     private readonly collectionName: string,
     private readonly validatorRegistry?: ValidatorRegistry,
-    private readonly onValidationError?: (
-      error: SchemaValidationError,
-    ) => void,
+    private readonly onValidationError?: (error: SchemaValidationError) => void
   ) {}
 
   private get table(): Table<Document<T>> {
@@ -91,7 +83,7 @@ export class CollectionClient<
       async () => {
         await this.table.add(doc);
         return { id };
-      },
+      }
     );
   }
 
@@ -115,7 +107,7 @@ export class CollectionClient<
       async () => {
         await this.table.bulkAdd(docs);
         return docs.map((d) => ({ id: d._id }));
-      },
+      }
     );
   }
 
@@ -126,7 +118,7 @@ export class CollectionClient<
       async () => {
         const all = await this.table.toArray();
         return all.filter((doc) => this.matchesFilter(doc, filter));
-      },
+      }
     );
   }
 
@@ -134,20 +126,15 @@ export class CollectionClient<
     return wrapIDBOperation(
       ErrorCode.DB_READ_FAILED,
       `Failed to get document "${id}" from "${this.collectionName}"`,
-      () => this.table.get(id),
+      () => this.table.get(id)
     );
   }
 
-  async update(
-    filter: QueryFilter<T>,
-    spec: UpdateSpec<T>,
-  ): Promise<number> {
+  async update(filter: QueryFilter<T>, spec: UpdateSpec<T>): Promise<number> {
     try {
       const matches = await this.find(filter);
       const now = Date.now();
-      const updatedDocs = matches.map((doc) =>
-        this.applyUpdateSpec(doc, spec, now)
-      );
+      const updatedDocs = matches.map((doc) => this.applyUpdateSpec(doc, spec, now));
 
       for (const doc of updatedDocs) {
         this.runValidation(doc);
@@ -167,7 +154,7 @@ export class CollectionClient<
       throw new ZerithDBError(
         ErrorCode.DB_WRITE_FAILED,
         `Failed to update documents in "${this.collectionName}"`,
-        { cause: err },
+        { cause: err }
       );
     }
   }
@@ -180,7 +167,7 @@ export class CollectionClient<
         const matches = await this.find(filter);
         await this.table.bulkDelete(matches.map((d) => d._id));
         return matches.length;
-      },
+      }
     );
   }
 
@@ -188,7 +175,7 @@ export class CollectionClient<
     return wrapIDBOperation(
       ErrorCode.DB_DELETE_FAILED,
       `Failed to clear collection "${this.collectionName}"`,
-      () => this.table.clear(),
+      () => this.table.clear()
     );
   }
 
@@ -210,11 +197,7 @@ export class CollectionClient<
     return () => sub.unsubscribe();
   }
 
-  private applyUpdateSpec(
-    doc: Document<T>,
-    spec: UpdateSpec<T>,
-    updatedAt: number,
-  ): Document<T> {
+  private applyUpdateSpec(doc: Document<T>, spec: UpdateSpec<T>, updatedAt: number): Document<T> {
     const next = {
       ...doc,
       ...(spec.$set ?? {}),
@@ -232,10 +215,7 @@ export class CollectionClient<
     return next as Document<T>;
   }
 
-  private matchesFilter(
-    doc: Document<T>,
-    filter: QueryFilter<T>,
-  ): boolean {
+  private matchesFilter(doc: Document<T>, filter: QueryFilter<T>): boolean {
     for (const [key, condition] of Object.entries(filter)) {
       const fieldValue = (doc as Record<string, any>)[key];
 
@@ -245,9 +225,7 @@ export class CollectionClient<
       }
 
       const conditions = condition as Record<string, any>;
-      const isOperatorObject = Object.keys(conditions).some((k) =>
-        k.startsWith("$"),
-      );
+      const isOperatorObject = Object.keys(conditions).some((k) => k.startsWith("$"));
 
       if (!isOperatorObject) {
         if (JSON.stringify(fieldValue) !== JSON.stringify(condition)) {
@@ -285,10 +263,7 @@ export class CollectionClient<
   private runValidation(data: unknown, batchIndex?: number): void {
     if (!this.validatorRegistry) return;
 
-    const result = this.validatorRegistry.validate(
-      this.collectionName,
-      data,
-    );
+    const result = this.validatorRegistry.validate(this.collectionName, data);
 
     if (result.valid) return;
 
@@ -299,10 +274,8 @@ export class CollectionClient<
 
     const error = new SchemaValidationError(
       ErrorCode.DB_VALIDATION_FAILED,
-      `${prefix} "${this.collectionName}": ${result.issues
-        .map((i) => i.message)
-        .join(", ")}`,
-      result.issues,
+      `${prefix} "${this.collectionName}": ${result.issues.map((i) => i.message).join(", ")}`,
+      result.issues
     );
 
     this.onValidationError?.(error);
@@ -335,20 +308,11 @@ export class DbClient {
     this.validatorRegistry = registry;
   }
 
-  collection<T extends Record<string, any>>(
-    name: string,
-  ): CollectionClient<T> {
+  collection<T extends Record<string, any>>(name: string): CollectionClient<T> {
     if (!this.collections.has(name)) {
       this.dexie.ensureCollection(name);
 
-      this.collections.set(
-        name,
-        new CollectionClient<T>(
-          this.dexie,
-          name,
-          this.validatorRegistry,
-        ),
-      );
+      this.collections.set(name, new CollectionClient<T>(this.dexie, name, this.validatorRegistry));
     }
 
     return this.collections.get(name) as CollectionClient<T>;
@@ -378,23 +342,19 @@ export class DbClient {
     return this.dexie.tables.map((t) => t.name);
   }
 
-  async exportSnapshot(
-    options: BackupExportOptions = {},
-  ): Promise<BackupSnapshot> {
+  async exportSnapshot(options: BackupExportOptions = {}): Promise<BackupSnapshot> {
     return wrapIDBOperation(
       ErrorCode.DB_READ_FAILED,
       "Failed to export local backup snapshot",
       async () => {
-        const collectionNames =
-          options.collections ?? this.allCollectionNames();
+        const collectionNames = options.collections ?? this.allCollectionNames();
 
         const collections: BackupSnapshot["collections"] = {};
 
         for (const name of collectionNames) {
           const table = this.dexie.ensureCollection(name);
 
-          collections[name] =
-            (await table.toArray()) as Document<Record<string, any>>[];
+          collections[name] = (await table.toArray()) as Document<Record<string, any>>[];
         }
 
         return {
@@ -403,7 +363,7 @@ export class DbClient {
           generatedAt: new Date().toISOString(),
           collections,
         };
-      },
+      }
     );
   }
 

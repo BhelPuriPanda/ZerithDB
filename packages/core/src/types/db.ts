@@ -19,15 +19,15 @@ export type Document<T extends Record<string, any> = Record<string, any>> = T & 
  */
 export type QueryFilter<T extends Record<string, any>> = {
   [K in keyof T]?:
-  | T[K]
-  | { $eq: T[K] }
-  | { $ne: T[K] }
-  | { $gt: T[K] }
-  | { $gte: T[K] }
-  | { $lt: T[K] }
-  | { $lte: T[K] }
-  | { $in: T[K][] }
-  | { $nin: T[K][] };
+    | T[K]
+    | { $eq: T[K] }
+    | { $ne: T[K] }
+    | { $gt: T[K] }
+    | { $gte: T[K] }
+    | { $lt: T[K] }
+    | { $lte: T[K] }
+    | { $in: T[K][] }
+    | { $nin: T[K][] };
 };
 
 import type { CollectionSchemaOptions } from "./validation.js";

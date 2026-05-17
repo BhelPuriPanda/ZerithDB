@@ -99,12 +99,14 @@ describe("EventEmitter - once() memory leak fix", () => {
   it("should allow removing a once() listener before it fires", () => {
     const emitter = new EventEmitter<TestEvents>();
     let called = false;
-    const handler = () => { called = true; };
-    
+    const handler = () => {
+      called = true;
+    };
+
     emitter.once("data", handler);
     emitter.off("data", handler);
     emitter.emit("data", { value: 1 });
-    
+
     expect(called).toBe(false);
   });
 
@@ -112,11 +114,11 @@ describe("EventEmitter - once() memory leak fix", () => {
     const emitter = new EventEmitter<TestEvents>();
     let count = 0;
     const handler = () => count++;
-    
+
     emitter.once("data", handler);
     emitter.emit("data", { value: 1 });
     expect(count).toBe(1);
-    
+
     emitter.emit("data", { value: 2 });
     expect(count).toBe(1);
   });
@@ -124,16 +126,16 @@ describe("EventEmitter - once() memory leak fix", () => {
   it("should handle mixed on() and once() listeners correctly", () => {
     const emitter = new EventEmitter<TestEvents>();
     const calls: string[] = [];
-    
+
     const regularHandler = () => calls.push("regular");
     const onceHandler = () => calls.push("once");
-    
+
     emitter.on("data", regularHandler);
     emitter.once("data", onceHandler);
-    
+
     emitter.emit("data", { value: 1 });
     expect(calls).toEqual(["regular", "once"]);
-    
+
     calls.length = 0;
     emitter.emit("data", { value: 2 });
     expect(calls).toEqual(["regular"]);

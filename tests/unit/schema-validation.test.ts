@@ -2,11 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import "fake-indexeddb/auto";
 import { z } from "zod";
 import * as Y from "yjs";
-import {
-  ValidatorRegistry,
-  SchemaValidationError,
-  ErrorCode
-} from "zerithdb-core";
+import { ValidatorRegistry, SchemaValidationError, ErrorCode } from "zerithdb-core";
 import { DbClient } from "zerithdb-db";
 import { SyncEngine } from "zerithdb-sync";
 import { NetworkManager } from "zerithdb-network";
@@ -95,7 +91,7 @@ describe("Schema Validation Infrastructure", () => {
     let registry: ValidatorRegistry;
     const TodoSchema = z.object({
       text: z.string().min(3),
-      done: z.boolean()
+      done: z.boolean(),
     });
 
     beforeEach(() => {
@@ -152,7 +148,7 @@ describe("Schema Validation Infrastructure", () => {
 
       const batch = [
         { text: "No", done: false }, // invalid first to ensure nothing added
-        { text: "Valid 2", done: false }
+        { text: "Valid 2", done: false },
       ];
 
       await expect(todos.insertMany(batch as any)).rejects.toThrow();
@@ -224,7 +220,7 @@ describe("Schema Validation Infrastructure", () => {
 
     const UserSchema = z.object({
       username: z.string().min(3),
-      age: z.number()
+      age: z.number(),
     });
 
     beforeEach(() => {
@@ -288,7 +284,10 @@ describe("Schema Validation Infrastructure", () => {
 
       // Should have only validated the newly added user-2
       expect(validateSpy).toHaveBeenCalledTimes(1);
-      expect(validateSpy).toHaveBeenCalledWith("users", expect.objectContaining({ username: "bob" }));
+      expect(validateSpy).toHaveBeenCalledWith(
+        "users",
+        expect.objectContaining({ username: "bob" })
+      );
     });
   });
 });

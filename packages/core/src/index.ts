@@ -41,5 +41,9 @@ export type {
   SyncUpdate,
   SyncState,
   AwarenessState,
+  EphemeralPeerState,
+  MediaStreamMetadata,
+  ActiveSpeakerState,
+  VideoParticipantState,
   SyncPlugin,
 } from "./types/sync.js";

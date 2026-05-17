@@ -21,32 +21,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 
-const CodeWalkthrough = dynamic(
-  () => import("@/components/CodeWalkthrough"),
-  {
-    loading: () => (
-      <div className="h-96 animate-pulse rounded-xl bg-gray-100" />
-    ),
-  }
-);
+const CodeWalkthrough = dynamic(() => import("@/components/CodeWalkthrough"), {
+  loading: () => <div className="h-96 animate-pulse rounded-xl bg-gray-100" />,
+});
 
-const TerminalShowcase = dynamic(
-  () => import("@/components/TerminalShowcase"),
-  {
-    loading: () => (
-      <div className="h-96 animate-pulse rounded-xl bg-gray-100" />
-    ),
-  }
-);
+const TerminalShowcase = dynamic(() => import("@/components/TerminalShowcase"), {
+  loading: () => <div className="h-96 animate-pulse rounded-xl bg-gray-100" />,
+});
 
-const AnimatedDiagram = dynamic(
-  () => import("@/components/AnimatedDiagram"),
-  {
-    loading: () => (
-      <div className="h-96 animate-pulse rounded-xl bg-gray-100" />
-    ),
-  }
-);
+const AnimatedDiagram = dynamic(() => import("@/components/AnimatedDiagram"), {
+  loading: () => <div className="h-96 animate-pulse rounded-xl bg-gray-100" />,
+});
 import FrameworkSection from "@/components/FrameworkSection";
 import { useState, useEffect } from "react";
 
@@ -520,7 +505,9 @@ export default function LandingPage() {
                   <h3 className="text-lg font-semibold text-foreground group-hover:text-blue-600 transition-colors">
                     {feature.title}
                   </h3>
-                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                    {feature.desc}
+                  </p>
                 </div>
               </motion.div>
             ))}
@@ -529,10 +516,15 @@ export default function LandingPage() {
       </section>
 
       {/* ── 4. HOW IT WORKS / DIAGRAM ── */}
-      <section id="how-it-works" className="py-24 px-6 bg-background border-y border-border transition-colors duration-300">
+      <section
+        id="how-it-works"
+        className="py-24 px-6 bg-background border-y border-border transition-colors duration-300"
+      >
         <div className="max-w-6xl mx-auto">
           <motion.div {...fadeInUp} className="text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight text-foreground transition-colors duration-300">How it works</h2>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground transition-colors duration-300">
+              How it works
+            </h2>
             <p className="mt-4 text-muted-foreground text-lg transition-colors duration-300">
               A simple, powerful data flow entirely in the browser.
             </p>
@@ -579,8 +571,12 @@ export default function LandingPage() {
                 <div className="w-10 h-10 bg-black text-white rounded-lg flex items-center justify-center font-bold text-sm mb-6 shadow-md mx-auto md:mx-0">
                   {item.step}
                 </div>
-                <h3 className="text-xl font-semibold text-foreground mb-2 transition-colors duration-300">{item.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed transition-colors duration-300">{item.desc}</p>
+                <h3 className="text-xl font-semibold text-foreground mb-2 transition-colors duration-300">
+                  {item.title}
+                </h3>
+                <p className="text-muted-foreground text-sm leading-relaxed transition-colors duration-300">
+                  {item.desc}
+                </p>
               </motion.div>
             ))}
           </motion.div>
@@ -749,7 +745,10 @@ export default function LandingPage() {
       </section>
 
       {/* ── 7. USE CASES ── */}
-      <section id="use-cases" className="py-24 px-6 bg-background border-t border-border transition-colors duration-300">
+      <section
+        id="use-cases"
+        className="py-24 px-6 bg-background border-t border-border transition-colors duration-300"
+      >
         <div className="max-w-6xl mx-auto">
           <motion.div {...fadeInUp} className="mb-16 md:text-center max-w-2xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground transition-colors duration-300">

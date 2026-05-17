@@ -33,6 +33,16 @@ export interface SyncConfig {
    * @default "auto"
    */
   transport?: "auto" | "websocket" | "polling";
+
+  /** Low-latency, non-persistent peer state configuration. */
+  ephemeral?: {
+    /** Delay in ms to throttle ephemeral broadcasts. @default 0 */
+    throttleMs?: number;
+    /** Interval in ms to prune stale peer states. @default 5000 */
+    cleanupIntervalMs?: number;
+    /** Delay in ms after which a peer is considered stale. @default 30000 */
+    staleAfterMs?: number;
+  };
 }
 
 export interface AuthConfig {

@@ -185,16 +185,14 @@ wss.on("connection", (ws, req) => {
 
   // Relay messages between peers
   ws.on("message", (data) => {
-    logger.debug(
-      `[MESSAGE] peer=${peerId} room=${roomId}`
-    );
+    logger.debug(`[MESSAGE] peer=${peerId} room=${roomId}`);
     let msg: { to?: string; from?: string; [key: string]: unknown };
     try {
       msg = JSON.parse(data.toString());
     } catch {
-        logger.warn(`[!] Invalid message from peer=${peerId}`);
-        return;
-      }
+      logger.warn(`[!] Invalid message from peer=${peerId}`);
+      return;
+    }
 
     // Stamp the sender
     msg.from = peerId;
@@ -219,9 +217,7 @@ wss.on("connection", (ws, req) => {
   });
 
   ws.on("error", (err) => {
-    logger.error(
-      `[!] peer=${peerId} error=${err.message}`
-    );
+    logger.error(`[!] peer=${peerId} error=${err.message}`);
     room.delete(peerEntry);
   });
 });
@@ -556,7 +552,7 @@ process.on("SIGTERM", () => {
   logger.info("Shutting down signaling server...");
   // Clean up all polling sessions
   for (const [sessionId] of pollingSessions) {
-  cleanupPollingSession(sessionId);
+    cleanupPollingSession(sessionId);
   }
   wss.close(() => server.close(() => process.exit(0)));
 });

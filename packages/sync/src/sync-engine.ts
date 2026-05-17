@@ -6,6 +6,7 @@ import type { DbClient } from "zerithdb-db";
 import type { NetworkManager } from "zerithdb-network";
 import { InboxQueue } from "./queue/InboxQueue.js";
 import { OutboxQueue } from "./queue/OutboxQueue.js";
+import { EphemeralStateManager } from "./ephemeral-state.js";
 import { bytesToBase64, base64ToBytes } from "zerithdb-utils";
 
 type SyncEvents = {
@@ -30,6 +31,7 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
 
   readonly outbox: OutboxQueue<Uint8Array>;
   readonly inbox: InboxQueue<Uint8Array>;
+  readonly ephemeral: EphemeralStateManager;
 
   private _enabled = false;
   private _state: SyncState = {
@@ -55,6 +57,7 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
 
     this.outbox = new OutboxQueue(config.appId);
     this.inbox = new InboxQueue(config.appId);
+    this.ephemeral = new EphemeralStateManager(config, network);
 
     this.onPeerUpdate = this.onPeerUpdate.bind(this);
     this.onPeerConnected = this.onPeerConnected.bind(this);
@@ -78,11 +81,7 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
       }
     } else if (document.visibilityState === "hidden") {
       if (this.syncTimer) {
-        if (
-          this.syncTimerIsRaf &&
-          typeof window !== "undefined" &&
-          window.cancelAnimationFrame
-        ) {
+        if (this.syncTimerIsRaf && typeof window !== "undefined" && window.cancelAnimationFrame) {
           window.cancelAnimationFrame(this.syncTimer);
         } else {
           clearTimeout(this.syncTimer);
@@ -193,11 +192,7 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
 
     for (const plugin of this.plugins.values()) {
       if (plugin.onBeforeApplyUpdate) {
-        finalUpdate = await plugin.onBeforeApplyUpdate(
-          collectionName,
-          finalUpdate,
-          fromPeer
-        );
+        finalUpdate = await plugin.onBeforeApplyUpdate(collectionName, finalUpdate, fromPeer);
 
         if (!finalUpdate) return;
       }
@@ -220,11 +215,7 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     }
 
     try {
-      await this.handleRemoteUpdate(
-        collectionName,
-        finalUpdate,
-        fromPeer
-      );
+      await this.handleRemoteUpdate(collectionName, finalUpdate, fromPeer);
     } finally {
       if (observing) {
         dataMap.unobserve(observer);
@@ -236,10 +227,7 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
         const value = dataMap.get(key);
         if (value === undefined) continue; // deleted key
 
-        const result = this.validatorRegistry!.validateRemote(
-          collectionName,
-          value
-        );
+        const result = this.validatorRegistry!.validateRemote(collectionName, value);
 
         if (!result.valid) {
           this.emit("validation:error", {
@@ -254,20 +242,13 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
 
   async dispose(): Promise<void> {
     if (typeof document !== "undefined") {
-      document.removeEventListener(
-        "visibilitychange",
-        this.handleVisibilityChange
-      );
+      document.removeEventListener("visibilitychange", this.handleVisibilityChange);
     }
 
     this.disable();
 
     if (this.syncTimer) {
-      if (
-        this.syncTimerIsRaf &&
-        typeof window !== "undefined" &&
-        window.cancelAnimationFrame
-      ) {
+      if (this.syncTimerIsRaf && typeof window !== "undefined" && window.cancelAnimationFrame) {
         window.cancelAnimationFrame(this.syncTimer);
       } else {
         clearTimeout(this.syncTimer);
@@ -304,16 +285,10 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
 
     if (
       !this.syncTimer &&
-      (typeof document === "undefined" ||
-        document.visibilityState !== "hidden")
+      (typeof document === "undefined" || document.visibilityState !== "hidden")
     ) {
-      if (
-        typeof window !== "undefined" &&
-        window.requestAnimationFrame
-      ) {
-        this.syncTimer = window.requestAnimationFrame(() =>
-          this.flushUpdates()
-        );
+      if (typeof window !== "undefined" && window.requestAnimationFrame) {
+        this.syncTimer = window.requestAnimationFrame(() => this.flushUpdates());
 
         this.syncTimerIsRaf = true;
       } else {
@@ -334,16 +309,10 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     this.pendingUpdates.clear();
   }
 
-  private onPeerUpdate(msg: {
-    type: string;
-    payload: Uint8Array | string;
-    from: string;
-  }): void {
+  private onPeerUpdate(msg: { type: string; payload: Uint8Array | string; from: string }): void {
     if (msg.type === "sync-upgrade-offer") {
       const payloadStr =
-        typeof msg.payload === "string"
-          ? msg.payload
-          : new TextDecoder().decode(msg.payload);
+        typeof msg.payload === "string" ? msg.payload : new TextDecoder().decode(msg.payload);
 
       const offer = JSON.parse(payloadStr) as {
         pluginUrl: string;
@@ -358,9 +327,7 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
           });
         })
         .catch(() => {
-          console.warn(
-            `Peer ${msg.from} failed to upgrade.`
-          );
+          console.warn(`Peer ${msg.from} failed to upgrade.`);
         });
 
       return;
@@ -372,20 +339,13 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
 
     if (msg.type !== "sync-update") return;
 
-    const payload =
-      typeof msg.payload === "string"
-        ? base64ToBytes(msg.payload)
-        : msg.payload;
+    const payload = typeof msg.payload === "string" ? base64ToBytes(msg.payload) : msg.payload;
 
     const decoded = this.decodeMessage(payload);
 
     if (decoded === null) return;
 
-    void this.applyRemoteUpdate(
-      decoded.collectionName,
-      decoded.update,
-      msg.from
-    );
+    void this.applyRemoteUpdate(decoded.collectionName, decoded.update, msg.from);
   }
 
   private onPeerConnected(): void {
@@ -402,19 +362,13 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     });
   }
 
-  private async handleLocalUpdate(
-    collectionName: string,
-    update: Uint8Array
-  ): Promise<void> {
+  private async handleLocalUpdate(collectionName: string, update: Uint8Array): Promise<void> {
     try {
       let finalUpdate: Uint8Array | null = update;
 
       for (const plugin of this.plugins.values()) {
         if (plugin.onBeforeSendUpdate) {
-          finalUpdate = await plugin.onBeforeSendUpdate(
-            collectionName,
-            finalUpdate
-          );
+          finalUpdate = await plugin.onBeforeSendUpdate(collectionName, finalUpdate);
 
           if (!finalUpdate) return;
         }
@@ -495,29 +449,21 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     for (const mutation of pending) {
       this.network.broadcast({
         type: mutation.type,
-        payload: this.encodeMessage(
-          mutation.collection,
-          mutation.payload
-        ),
+        payload: this.encodeMessage(mutation.collection, mutation.payload),
       });
 
       await this.outbox.acknowledge(mutation.id);
     }
   }
 
-  private encodeMessage(
-    collectionName: string,
-    update: Uint8Array
-  ): string {
+  private encodeMessage(collectionName: string, update: Uint8Array): string {
     const nameBytes = new TextEncoder().encode(collectionName);
 
     const header = new Uint8Array(2);
     header[0] = (nameBytes.length >> 8) & 0xff;
     header[1] = nameBytes.length & 0xff;
 
-    const combined = new Uint8Array(
-      2 + nameBytes.length + update.length
-    );
+    const combined = new Uint8Array(2 + nameBytes.length + update.length);
 
     combined.set(header, 0);
     combined.set(nameBytes, 2);

@@ -29,7 +29,8 @@ export function bytesToHex(bytes: Uint8Array): string {
 
 /** Convert a hex string to a Uint8Array */
 export function hexToBytes(hex: string): Uint8Array {
-  if (hex.length % 2 !== 0) throw new ZerithDBError(ErrorCode.INVALID_HEX_STRING, "Invalid hex string length");
+  if (hex.length % 2 !== 0)
+    throw new ZerithDBError(ErrorCode.INVALID_HEX_STRING, "Invalid hex string length");
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
     bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
@@ -74,7 +75,9 @@ export async function withTimeout<T>(
 ): Promise<T> {
   return Promise.race([
     fn(),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new ZerithDBError(ErrorCode.TIMEOUT_EXCEEDED, timeoutMessage)), ms)),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new ZerithDBError(ErrorCode.TIMEOUT_EXCEEDED, timeoutMessage)), ms)
+    ),
   ]);
 }
 
