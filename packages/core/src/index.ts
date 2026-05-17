@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export { EventEmitter } from "./internal/event-emitter.js";
-export { ZerithDBError, ErrorCode, SchemaValidationError } from "./internal/errors.js";
+export { ZerithDBError, ErrorCode, SchemaValidationError } from "zerithdb-errors";
 export { Logger } from "./internal/logger.js";
 
 export { ValidatorRegistry } from "./internal/validator-registry.js";

@@ -1,4 +1,4 @@
-import Dexie, { type Table } from "dexie";
+import Dexie, { type Table, liveQuery } from "dexie";
 import { v7 as uuidv7 } from "uuid";
 
 import type {
@@ -199,6 +199,15 @@ export class CollectionClient<
   async count(filter: QueryFilter<T> = {}): Promise<number> {
     const docs = await this.find(filter);
     return docs.length;
+  }
+
+  subscribe(callback: (documents: Document<T>[]) => void): () => void {
+    const observable = liveQuery(() => this.find({}));
+    const sub = observable.subscribe({
+      next: (docs) => callback(docs as Document<T>[]),
+      error: (err) => console.error(`Subscription error in "${this.collectionName}":`, err),
+    });
+    return () => sub.unsubscribe();
   }
 
   private applyUpdateSpec(

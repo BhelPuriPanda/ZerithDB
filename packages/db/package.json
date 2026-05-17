@@ -25,7 +25,8 @@
   "dependencies": {
     "dexie": "^4.0.8",
     "uuid": "^10.0.0",
-    "zerithdb-core": "workspace:*"
+    "zerithdb-core": "workspace:*",
+    "zerithdb-errors": "workspace:*"
   },
   "peerDependencies": {
     "zod": "^3.22.0"

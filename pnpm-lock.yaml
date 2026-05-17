@@ -469,6 +469,9 @@ importers:
       zerithdb-core:
         specifier: workspace:*
         version: link:../core
+      zerithdb-errors:
+        specifier: workspace:*
+        version: link:../errors
       zod:
         specifier: ^3.x
         version: 3.25.76
