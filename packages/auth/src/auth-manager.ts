@@ -2,6 +2,7 @@ import * as ed from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha2.js";
 import type { ZerithDBConfig, Identity, Signature } from "zerithdb-core";
 import { ZerithDBError, ErrorCode, EventEmitter } from "zerithdb-core";
+import { timingSafeEqual } from "./timing-safe.js";
 
 // noble/ed25519 requires a sha512 implementation
 ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
@@ -95,6 +96,21 @@ export class AuthManager extends EventEmitter<AuthEvents> {
   async verify(data: Uint8Array, signature: Signature, publicKey: string): Promise<boolean> {
     try {
       return await ed.verifyAsync(hexToBytes(signature), data, hexToBytes(publicKey));
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Securely compares two authentication token challenges in constant time.
+   * Mitigates potential timing attacks against the P2P cluster syncing auth protocols.
+   * Highly critical for distributed network synchronization.
+   */
+  verifyPeerChallenge(expected: string, received: string): boolean {
+    try {
+      const expectedBytes = hexToBytes(expected);
+      const receivedBytes = hexToBytes(received);
+      return timingSafeEqual(expectedBytes, receivedBytes);
     } catch {
       return false;
     }
