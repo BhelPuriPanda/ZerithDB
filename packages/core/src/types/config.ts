@@ -34,15 +34,19 @@ export interface SyncConfig {
    */
   transport?: "auto" | "websocket" | "polling";
 
-  /** Low-latency, non-persistent peer state configuration. */
-  ephemeral?: {
-    /** Delay in ms to throttle ephemeral broadcasts. @default 0 */
-    throttleMs?: number;
-    /** Interval in ms to prune stale peer states. @default 5000 */
-    cleanupIntervalMs?: number;
-    /** Delay in ms after which a peer is considered stale. @default 30000 */
-    staleAfterMs?: number;
-  };
+  /**
+   * Configuration options for low-latency ephemeral sync state.
+   */
+  ephemeral?: EphemeralConfig;
+}
+
+export interface EphemeralConfig {
+  /** Delay in ms to throttle ephemeral broadcasts. @default 0 */
+  throttleMs?: number;
+  /** Interval in ms to prune stale peer states. @default 5000 */
+  cleanupIntervalMs?: number;
+  /** Delay in ms after which a peer is considered stale. @default 30000 */
+  staleAfterMs?: number;
 }
 
 export interface AuthConfig {
@@ -74,6 +78,11 @@ export interface NetworkConfig {
    * @default 1000
    */
   reconnectDelay?: number;
+  /** Optional human-readable peer alias */
+  name?: string;
+
+  /** Optional ENS identity */
+  ens?: string;
 }
 
 export interface ZerithDBConfig {

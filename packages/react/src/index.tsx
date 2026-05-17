@@ -1,7 +1,7 @@
-export { ZerithContext, ZerithProvider } from "./context";
-export type { ZerithProviderProps } from "./context";
-export { useZerith } from "./useZerith";
-export { useQuery } from "./useQuery";
-export { useSync } from "./useSync";
-export { useAuth } from "./useAuth";
-export { useValidatedQuery } from "./useValidatedQuery";
+export { ZerithContext, ZerithProvider } from "./context.js";
+export type { ZerithProviderProps } from "./context.js";
+export { useZerith } from "./useZerith.js";
+export { useQuery } from "./useQuery.js";
+export { useSync } from "./useSync.js";
+export { useAuth } from "./useAuth.js";
+export { useValidatedQuery } from "./useValidatedQuery.js";

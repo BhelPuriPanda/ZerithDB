@@ -8,3 +8,4 @@ export type {
   QueuedMutationDirection,
   QueuedMutationStatus,
 } from "./queue/types.js";
+export type { EphemeralSetOptions } from "./ephemeral-state.js";

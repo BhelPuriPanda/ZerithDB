@@ -26,12 +26,14 @@ type SyncEvents = {
  * Incoming peer deltas are applied to the Y.Doc, which reactively updates the DB.
  */
 export class SyncEngine extends EventEmitter<SyncEvents> {
+  /** Low-latency, non-persistent metadata sync for presence, media, and UI state. */
+  readonly ephemeral: EphemeralStateManager;
+
   private readonly docs = new Map<string, Y.Doc>();
   private readonly persistences = new Map<string, IndexeddbPersistence>();
 
   readonly outbox: OutboxQueue<Uint8Array>;
   readonly inbox: InboxQueue<Uint8Array>;
-  readonly ephemeral: EphemeralStateManager;
 
   private _enabled = false;
   private _state: SyncState = {
@@ -101,12 +103,8 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     this.network.on("message", this.onPeerUpdate);
     this.network.on("peer:connected", this.onPeerConnected);
     this.network.on("peer:disconnected", this.onPeerDisconnected);
-
-    this.updateState({
-      synced: true,
-      connectedPeers: this.network.connectedPeerCount,
-    });
-
+    this.ephemeral.enable();
+    this.updateState({ synced: true, connectedPeers: this.network.connectedPeerCount });
     void this.flushOutbox();
   }
 
@@ -116,11 +114,8 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     this.network.off("message", this.onPeerUpdate);
     this.network.off("peer:connected", this.onPeerConnected);
     this.network.off("peer:disconnected", this.onPeerDisconnected);
-
-    this.updateState({
-      synced: false,
-      connectedPeers: 0,
-    });
+    this.ephemeral.disable();
+    this.updateState({ synced: false, connectedPeers: 0 });
   }
 
   registerPlugin(plugin: SyncPlugin): void {
@@ -246,7 +241,7 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     }
 
     this.disable();
-
+    this.ephemeral.dispose();
     if (this.syncTimer) {
       if (this.syncTimerIsRaf && typeof window !== "undefined" && window.cancelAnimationFrame) {
         window.cancelAnimationFrame(this.syncTimer);
@@ -300,7 +295,7 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
 
   private flushUpdates(): void {
     this.syncTimer = null;
-
+    this.syncTimerIsRaf = false;
     for (const [collectionName, updates] of this.pendingUpdates.entries()) {
       const merged = Y.mergeUpdates(updates);
       void this.handleLocalUpdate(collectionName, merged);

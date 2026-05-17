@@ -1,14 +1,16 @@
 import type { ZerithDBConfig, CollectionOptions } from "zerithdb-core";
 import { ValidatorRegistry } from "zerithdb-core";
 import { Logger } from "zerithdb-core";
+import type { Document, Identity, QueryFilter, SyncState } from "zerithdb-core";
+export type { Document, Identity, QueryFilter, SyncState, ZerithDBConfig, CollectionOptions };
 import { MemoryCollector, estimateStorageBytes } from "zerithdb-devtools";
 import { ZerithDBError, ErrorCode } from "zerithdb-core";
-import { DbClient, CollectionClient } from "./db-client.js";
-import type { CloudBackupTarget, LocalCloudBackupOptions } from "./db-client.js";
-import { LocalCloudBackupAdapter } from "./db-client.js";
-import { SyncEngine } from "./sync-engine.js";
-import { AuthManager } from "./auth-manager.js";
-import { NetworkManager } from "./network-manager.js";
+import { DbClient, CollectionClient } from "zerithdb-db";
+import type { CloudBackupTarget, LocalCloudBackupOptions } from "zerithdb-db";
+import { LocalCloudBackupAdapter } from "zerithdb-db";
+import { SyncEngine } from "zerithdb-sync";
+import { AuthManager } from "zerithdb-auth";
+import { NetworkManager } from "zerithdb-network";
 
 /**
  * The root ZerithDB application instance returned by {@link createApp}.
@@ -93,7 +95,7 @@ function isIndexedDBAvailable(): boolean {
 export function createApp(config: ZerithDBConfig): ZerithDBApp {
   if (!isIndexedDBAvailable()) {
     throw new ZerithDBError(
-      ErrorCode.SDK_UNSUPPORTED_ENVIRONMENT,
+      ErrorCode.SDK_NOT_INITIALIZED,
       "IndexedDB is unavailable in this browser environment. ZerithDB requires IndexedDB support. Try disabling private/incognito restrictions or use a supported browser."
     );
   }

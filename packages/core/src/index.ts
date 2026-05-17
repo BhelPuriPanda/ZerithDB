@@ -27,7 +27,6 @@ export type {
   FindResult,
   CollectionOptions,
 } from "./types/db.js";
-
 export type {
   SchemaLike,
   SafeParseResult,
@@ -35,15 +34,31 @@ export type {
   CollectionSchemaOptions,
 } from "./types/validation.js";
 
-export type { PeerId, PeerInfo, RoomId, NetworkMessage } from "./types/network.js";
+export type {
+  PeerId,
+  PeerInfo,
+  RoomId,
+  NetworkMessage,
+  MediaStreamKind,
+  MediaTrackMetadata,
+  MediaStreamMetadata,
+} from "./types/network.js";
+
 export type { Identity, PublicKey, Signature } from "./types/auth.js";
 export type {
   SyncUpdate,
   SyncState,
   AwarenessState,
+  SyncPlugin,
   EphemeralPeerState,
-  MediaStreamMetadata,
   ActiveSpeakerState,
   VideoParticipantState,
-  SyncPlugin,
 } from "./types/sync.js";
+
+export type {
+  GraphNode,
+  GraphEdge,
+  GraphNodeId,
+  EdgeLabel,
+  GraphTraversalResult,
+} from "./types/graph.js";

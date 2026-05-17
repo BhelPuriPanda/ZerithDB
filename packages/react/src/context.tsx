@@ -1,4 +1,4 @@
-import React, { createContext, useMemo, useEffect } from "react";
+import React, { createContext, useState, useEffect } from "react";
 import { createApp } from "zerithdb-sdk";
 import type { ZerithDBApp, ZerithDBConfig } from "zerithdb-sdk";
 
@@ -16,15 +16,17 @@ export interface ZerithProviderProps {
  * memory/connection leaks.
  */
 export const ZerithProvider: React.FC<ZerithProviderProps> = ({ config, children }) => {
-  const configKey = JSON.stringify(config);
-  const client = useMemo(() => createApp(config), [configKey]);
+  const configStr = JSON.stringify(config);
+  const [client, setClient] = useState(() => createApp(config));
 
   // Dispose on unmount or when config changes (new client replaces old one)
   useEffect(() => {
+    const app = createApp(config);
+    setClient(app);
     return () => {
-      void client.dispose();
+      void app.dispose();
     };
-  }, [client]);
+  }, [configStr]);
 
   return <ZerithContext.Provider value={client}>{children}</ZerithContext.Provider>;
 };
