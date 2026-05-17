@@ -57,7 +57,7 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
     private readonly dexie: ZerithDBDexie,
     private readonly collectionName: string,
     private readonly validatorRegistry?: ValidatorRegistry,
-    private readonly onValidationError?: (error: SchemaValidationError) => void,
+    private readonly onValidationError?: (error: SchemaValidationError) => void
   ) {}
 
   /**
@@ -76,8 +76,7 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
 
     const subscription = observable.subscribe({
       next: (docs) => callback(docs as Document<T>[]),
-      error: (err) =>
-        console.error(`Subscription error in "${this.collectionName}":`, err),
+      error: (err) => console.error(`Subscription error in "${this.collectionName}":`, err),
     });
 
     return () => subscription.unsubscribe();
@@ -153,9 +152,7 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
     try {
       const matches = await this.find(filter);
       const now = Date.now();
-      const updatedDocs = matches.map((doc) =>
-        this.applyUpdateSpec(doc, spec, now),
-      );
+      const updatedDocs = matches.map((doc) => this.applyUpdateSpec(doc, spec, now));
 
       for (const doc of updatedDocs) {
         this.runValidation(doc);
@@ -207,11 +204,7 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
     return docs.length;
   }
 
-  private applyUpdateSpec(
-    doc: Document<T>,
-    spec: UpdateSpec<T>,
-    updatedAt: number,
-  ): Document<T> {
+  private applyUpdateSpec(doc: Document<T>, spec: UpdateSpec<T>, updatedAt: number): Document<T> {
     const next = {
       ...doc,
       ...(spec.$set ?? {}),

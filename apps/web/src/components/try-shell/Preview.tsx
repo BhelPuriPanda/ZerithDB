@@ -50,7 +50,7 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
     const mockSDK = {
       createApp: (config: Record<string, unknown>) => {
         const appId = (config?.appId as string) || "demo-app";
-        
+
         return {
           appId,
           config,
@@ -58,20 +58,22 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
             insert: async (data: Record<string, unknown> | Record<string, unknown>[]) => {
               if (!memoryDB[collection]) memoryDB[collection] = [];
               const docs = Array.isArray(data) ? data : [data];
-              const docsWithId = docs.map(d => ({ 
-                ...d, 
+              const docsWithId = docs.map((d) => ({
+                ...d,
                 id: (d.id as string) || Math.random().toString(36).substring(2, 9),
-                _created: Date.now()
+                _created: Date.now(),
               }));
               memoryDB[collection].push(...docsWithId);
-              return Array.isArray(data) ? docsWithId.map(d => d.id as string) : docsWithId[0].id as string;
+              return Array.isArray(data)
+                ? docsWithId.map((d) => d.id as string)
+                : (docsWithId[0].id as string);
             },
             find: async (filter: Record<string, unknown> = {}) => {
               const docs = memoryDB[collection] || [];
-              return docs.filter(doc => {
+              return docs.filter((doc) => {
                 for (const key in filter) {
                   const val = filter[key];
-                  if (typeof val === 'object' && val !== null) {
+                  if (typeof val === "object" && val !== null) {
                     const obj = val as Record<string, number>;
                     if (obj.$gt !== undefined && !((doc[key] as number) > obj.$gt)) return false;
                     if (obj.$lt !== undefined && !((doc[key] as number) < obj.$lt)) return false;
@@ -86,14 +88,19 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
             },
             findOne: async (filter: Record<string, unknown>) => {
               const docs = memoryDB[collection] || [];
-              return docs.find(doc => {
-                for (const key in filter) {
-                  if (doc[key] !== filter[key]) return false;
-                }
-                return true;
-              }) || null;
+              return (
+                docs.find((doc) => {
+                  for (const key in filter) {
+                    if (doc[key] !== filter[key]) return false;
+                  }
+                  return true;
+                }) || null
+              );
             },
-            update: async (filter: Record<string, unknown>, update: { $set?: Record<string, unknown> }) => {
+            update: async (
+              filter: Record<string, unknown>,
+              update: { $set?: Record<string, unknown> }
+            ) => {
               const docs = memoryDB[collection] || [];
               docs.forEach((doc) => {
                 let match = true;
@@ -121,12 +128,12 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
             disable: () => mockConsole.log("Sync disabled for", appId),
             status: () => "connected",
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            on: (event: string, cb: (...args: unknown[]) => void) => 
-              mockConsole.log("Attached listener for", event)
+            on: (event: string, cb: (...args: unknown[]) => void) =>
+              mockConsole.log("Attached listener for", event),
           },
           auth: {
-            getIdentity: () => ({ 
-              publicKey: "ed25519:mock_key_" + Math.random().toString(36).substring(2, 7) 
+            getIdentity: () => ({
+              publicKey: "ed25519:mock_key_" + Math.random().toString(36).substring(2, 7),
             }),
             signIn: async () => mockConsole.log("Signed in as anonymous user"),
             signOut: async () => mockConsole.log("Signed out"),
@@ -205,21 +212,33 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
           >
             <span className="text-gray-500 mr-2">[{new Date().toLocaleTimeString()}]</span>
             {log.type === "error" ? (
-              <span className="text-red-400">✖ {log.content.map(c => 
-                typeof c === 'object' ? JSON.stringify(c, null, 2) : String(c)
-              ).join(' ')}</span>
+              <span className="text-red-400">
+                ✖{" "}
+                {log.content
+                  .map((c) => (typeof c === "object" ? JSON.stringify(c, null, 2) : String(c)))
+                  .join(" ")}
+              </span>
             ) : log.type === "warn" ? (
-              <span className="text-yellow-400">⚠ {log.content.map(c => 
-                typeof c === 'object' ? JSON.stringify(c, null, 2) : String(c)
-              ).join(' ')}</span>
+              <span className="text-yellow-400">
+                ⚠{" "}
+                {log.content
+                  .map((c) => (typeof c === "object" ? JSON.stringify(c, null, 2) : String(c)))
+                  .join(" ")}
+              </span>
             ) : log.type === "info" ? (
-              <span className="text-blue-400">ℹ {log.content.map(c => 
-                typeof c === 'object' ? JSON.stringify(c, null, 2) : String(c)
-              ).join(' ')}</span>
+              <span className="text-blue-400">
+                ℹ{" "}
+                {log.content
+                  .map((c) => (typeof c === "object" ? JSON.stringify(c, null, 2) : String(c)))
+                  .join(" ")}
+              </span>
             ) : (
-              <span className="text-green-400">› {log.content.map(c => 
-                typeof c === 'object' ? JSON.stringify(c, null, 2) : String(c)
-              ).join(' ')}</span>
+              <span className="text-green-400">
+                ›{" "}
+                {log.content
+                  .map((c) => (typeof c === "object" ? JSON.stringify(c, null, 2) : String(c)))
+                  .join(" ")}
+              </span>
             )}
           </div>
         ))}

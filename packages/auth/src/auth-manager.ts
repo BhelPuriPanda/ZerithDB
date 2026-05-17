@@ -172,14 +172,11 @@ export class AuthManager extends EventEmitter<AuthEvents> {
    * Generate Shamir's Secret Sharing shards from the current identity's private key.
    * Generate recovery shards for the current master identity private key using Shamir's Secret Sharing.  [KEPT BOTH COMMENTS]
    */
-  async generateRecoveryShards(
-    threshold: number,
-    total: number,
-  ): Promise<string[]> {
+  async generateRecoveryShards(threshold: number, total: number): Promise<string[]> {
     if (this.privateKeyBytes === null) {
       throw new ZerithDBError(
         ErrorCode.AUTH_KEY_NOT_FOUND,
-        "No identity loaded. Call auth.signIn() before generating shards.",
+        "No identity loaded. Call auth.signIn() before generating shards."
       );
     }
 
