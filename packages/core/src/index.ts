@@ -4,9 +4,19 @@
 
 export { EventEmitter } from "./internal/event-emitter.js";
 export { ZerithDBError, ErrorCode, SchemaValidationError } from "./internal/errors.js";
+export { Logger } from "./internal/logger.js";
+
 export { ValidatorRegistry } from "./internal/validator-registry.js";
 export type { RegisteredValidator, ValidationResult } from "./internal/validator-registry.js";
-export type { ZerithDBConfig, SyncConfig, AuthConfig, NetworkConfig } from "./types/config.js";
+
+export type {
+  ZerithDBConfig,
+  SyncConfig,
+  AuthConfig,
+  NetworkConfig,
+  DebugConfig,
+} from "./types/config.js";
+
 export type {
   Document,
   DocumentId,
@@ -17,12 +27,19 @@ export type {
   FindResult,
   CollectionOptions,
 } from "./types/db.js";
+
 export type {
   SchemaLike,
   SafeParseResult,
   ValidationMode,
   CollectionSchemaOptions,
 } from "./types/validation.js";
+
 export type { PeerId, PeerInfo, RoomId, NetworkMessage } from "./types/network.js";
 export type { Identity, PublicKey, Signature } from "./types/auth.js";
-export type { SyncUpdate, SyncState, AwarenessState } from "./types/sync.js";
+export type {
+  SyncUpdate,
+  SyncState,
+  AwarenessState,
+  SyncPlugin,
+} from "./types/sync.js";
