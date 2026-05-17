@@ -7,20 +7,21 @@ import type {
   QueryFilter,
   InsertResult,
   UpdateSpec,
- ValidatorRegistry,
+  ValidatorRegistry,
 } from "zerithdb-core";
 
 import {
   ZerithDBError,
   ErrorCode,
   SchemaValidationError,
-} from "zerithdb-core";
+} from "zerithdb-errors";
 
 import { wrapIDBOperation } from "./internal/wrap-idb-operation.js";
 import type { BackupExportOptions, BackupSnapshot } from "./backup.js";
 
 /**
  * Internal Dexie subclass that manages dynamic collection creation.
+ * Collections are added lazily via schema version upgrades.
  */
 class ZerithDBDexie extends Dexie {
   private readonly tableMap = new Map<string, Table>();
@@ -35,6 +36,7 @@ class ZerithDBDexie extends Dexie {
     if (!this.tableMap.has(name)) {
       this._currentSchema[name] = "_id, _createdAt, _updatedAt";
 
+      // We must increment the version for every new collection added dynamically
       const nextVersion = Math.max(this.verno, this._pendingVersion) + 1;
       this._pendingVersion = nextVersion;
 
@@ -245,55 +247,20 @@ export class CollectionClient<
         continue;
       }
 
-      if ("$eq" in conditions && fieldValue !== conditions["$eq"]) {
+      if ("$eq" in conditions && fieldValue !== conditions["$eq"]) return false;
+      if ("$ne" in conditions && fieldValue === conditions["$ne"]) return false;
+      if ("$gt" in conditions && !((fieldValue as any) > (conditions["$gt"] as never)))
         return false;
-      }
-
-      if ("$ne" in conditions && fieldValue === conditions["$ne"]) {
+      if ("$gte" in conditions && !((fieldValue as any) >= (conditions["$gte"] as never)))
         return false;
-      }
-
-      if (
-        "$gt" in conditions &&
-        !((fieldValue as any) > (conditions["$gt"] as never))
-      ) {
+      if ("$lt" in conditions && !((fieldValue as any) < (conditions["$lt"] as never)))
         return false;
-      }
-
-      if (
-        "$gte" in conditions &&
-        !((fieldValue as any) >= (conditions["$gte"] as never))
-      ) {
+      if ("$lte" in conditions && !((fieldValue as any) <= (conditions["$lte"] as never)))
         return false;
-      }
-
-      if (
-        "$lt" in conditions &&
-        !((fieldValue as any) < (conditions["$lt"] as never))
-      ) {
+      if ("$in" in conditions && !(conditions["$in"] as unknown[]).includes(fieldValue))
         return false;
-      }
-
-      if (
-        "$lte" in conditions &&
-        !((fieldValue as any) <= (conditions["$lte"] as never))
-      ) {
+      if ("$nin" in conditions && (conditions["$nin"] as unknown[]).includes(fieldValue))
         return false;
-      }
-
-      if (
-        "$in" in conditions &&
-        !(conditions["$in"] as unknown[]).includes(fieldValue)
-      ) {
-        return false;
-      }
-
-      if (
-        "$nin" in conditions &&
-        (conditions["$nin"] as unknown[]).includes(fieldValue)
-      ) {
-        return false;
-      }
     }
 
     return true;

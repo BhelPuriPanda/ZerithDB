@@ -70,6 +70,6 @@ if __name__ == "__main__":
 
 ## Troubleshooting
 
-Having trouble installing? Common issues (like `Failed to build aiortc` due to missing `ffmpeg`)
-are documented in the **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** guide, with step-by-step
-fixes for Windows, macOS and Linux.
+Having trouble installing? Common issues (like `Failed to build aiortc` due to missing `ffmpeg`) are
+documented in the **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** guide, with step-by-step fixes for
+Windows, macOS and Linux.

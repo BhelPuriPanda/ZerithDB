@@ -2,6 +2,10 @@
   "name": "zerithdb",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "description": "Local-first, peer-to-peer backend platform. The browser is the server.",
   "author": "ZerithDB Contributors",
   "license": "Apache-2.0",

@@ -1,7 +1,7 @@
 # zerithdb-auth-auth0
 
-Auth0 integration for ZerithDB peer identities. This package adds a human identity
-layer (Auth0 user claims) on top of ZerithDB's keypair-based identity.
+Auth0 integration for ZerithDB peer identities. This package adds a human identity layer (Auth0 user
+claims) on top of ZerithDB's keypair-based identity.
 
 ## Install
 
@@ -32,8 +32,7 @@ app.sync.enable();
 
 ## Gate access with Auth0 tokens
 
-On your signaling server or API layer, verify incoming tokens before allowing
-peers to join a room.
+On your signaling server or API layer, verify incoming tokens before allowing peers to join a room.
 
 ```ts
 import { verifyAuth0Token } from "zerithdb-auth-auth0";
@@ -52,5 +51,5 @@ if (!ok) {
 ## Notes
 
 - `signInWithAuth0` uses the Auth0 SPA SDK and opens a popup login if needed.
-- `accessToken` is returned on the identity object for convenience. Avoid
-  persisting it outside memory.
+- `accessToken` is returned on the identity object for convenience. Avoid persisting it outside
+  memory.

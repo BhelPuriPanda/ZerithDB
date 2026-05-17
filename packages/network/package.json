@@ -24,7 +24,8 @@
   "dependencies": {
     "zerithdb-auth": "workspace:*",
     "zerithdb-core": "workspace:*",
-    "simple-peer": "^9.11.1"
+    "simple-peer": "^9.11.1",
+    "zerithdb-errors": "workspace:*"
   },
   "devDependencies": {
     "zerithdb-eslint-config": "workspace:*",

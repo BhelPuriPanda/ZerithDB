@@ -2,6 +2,7 @@
  * zerithdb-utils — Internal shared utilities
  * Not for public consumption. Not exported from zerithdb-sdk.
  */
+import { ZerithDBError, ErrorCode } from "zerithdb-errors";
 
 // ─── Type guards ──────────────────────────────────────────────────────────────
 
@@ -13,7 +14,7 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
 /** Asserts a value is not null or undefined, throws with a message if it is */
 export function assertDefined<T>(value: T | null | undefined, message: string): asserts value is T {
   if (value === null || value === undefined) {
-    throw new Error(message);
+    throw new ZerithDBError(ErrorCode.ASSERTION_FAILED, message);
   }
 }
 
@@ -28,7 +29,7 @@ export function bytesToHex(bytes: Uint8Array): string {
 
 /** Convert a hex string to a Uint8Array */
 export function hexToBytes(hex: string): Uint8Array {
-  if (hex.length % 2 !== 0) throw new Error("Invalid hex string length");
+  if (hex.length % 2 !== 0) throw new ZerithDBError(ErrorCode.INVALID_HEX_STRING, "Invalid hex string length");
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
     bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
@@ -73,7 +74,7 @@ export async function withTimeout<T>(
 ): Promise<T> {
   return Promise.race([
     fn(),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(timeoutMessage)), ms)),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new ZerithDBError(ErrorCode.TIMEOUT_EXCEEDED, timeoutMessage)), ms)),
   ]);
 }
 

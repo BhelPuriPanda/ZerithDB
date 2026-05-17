@@ -28,7 +28,7 @@ jobs:
         run: |
           PR_NUM="${{ github.event.issue.number || github.event.pull_request.number }}"
           curl -s \
-            -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+            -H "Authorization: Bearer ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3.diff" \
             "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUM}" \
             > pr.diff
@@ -96,9 +96,10 @@ jobs:
           - COMMENT: only minor/nitpick issues or just observations
           """
 
-          api_key = os.environ.get('GROQ_API_KEY', '')
-          if not api_key:
-              print("ERROR: GROQ_API_KEY secret not set", file=sys.stderr)
+          primary_key  = os.environ.get('GROQ_API_KEY', '')
+          fallback_key = os.environ.get('GROQ_API_KEY_FALLBACK', '')
+          if not primary_key and not fallback_key:
+              print("ERROR: Neither GROQ_API_KEY nor GROQ_API_KEY_FALLBACK secret is set", file=sys.stderr)
               sys.exit(1)
 
           url = "https://api.groq.com/openai/v1/chat/completions"
@@ -112,22 +113,39 @@ jobs:
               "response_format": {"type": "json_object"}
           }
 
-          req = urllib.request.Request(
-              url,
-              data=json.dumps(payload).encode(),
-              headers={
-                  "Authorization": f"Bearer {api_key}",
-                  "Content-Type": "application/json",
-                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-              },
-              method="POST"
-          )
-
-          try:
+          def call_groq(api_key):
+              req = urllib.request.Request(
+                  url,
+                  data=json.dumps(payload).encode(),
+                  headers={
+                      "Authorization": f"Bearer {api_key}",
+                      "Content-Type": "application/json",
+                      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                  },
+                  method="POST"
+              )
               with urllib.request.urlopen(req, timeout=60) as resp:
-                  data = json.load(resp)
-          except urllib.error.HTTPError as e:
-              print(f"Groq API error {e.code}: {e.read().decode()}", file=sys.stderr)
+                  return json.load(resp)
+
+          data = None
+          keys_to_try = [("primary", primary_key), ("fallback", fallback_key)]
+          for label, key in keys_to_try:
+              if not key:
+                  continue
+              try:
+                  data = call_groq(key)
+                  print(f"✅ Groq request succeeded using {label} key")
+                  break
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode()
+                  print(f"Groq API error {e.code} ({label} key): {body}", file=sys.stderr)
+                  if e.code == 429 and label == "primary" and fallback_key:
+                      print("Rate limit hit on primary key — retrying with fallback key…", file=sys.stderr)
+                      continue
+                  sys.exit(1)
+
+          if data is None:
+              print("ERROR: All Groq API keys exhausted or unavailable", file=sys.stderr)
               sys.exit(1)
 
           text = data['choices'][0]['message']['content']
@@ -156,7 +174,8 @@ jobs:
           print(f"✅ Review generated — verdict: {review.get('verdict')}, safe_to_merge: {review.get('safe_to_merge')}, labels: {review.get('suggested_labels')}")
           PYEOF
         env:
-          GROQ_API_KEY:   ${{ secrets.GROQ_API_KEY }}
+          GROQ_API_KEY:          ${{ secrets.GROQ_API_KEY }}
+          GROQ_API_KEY_FALLBACK: ${{ secrets.GROQ_API_KEY_FALLBACK }}
           PR_TITLE:       ${{ github.event.issue.title || github.event.pull_request.title }}
           PR_BODY:        ${{ github.event.issue.body || github.event.pull_request.body }}
           PR_AUTHOR:      ${{ github.event.issue.user.login || github.event.pull_request.user.login }}
@@ -188,7 +207,7 @@ jobs:
               print("✅ Labels applied successfully")
           PYEOF
         env:
-          GH_TOKEN:            ${{ secrets.PAT_TOKEN }}
+          GH_TOKEN:            ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           PR_NUMBER:           ${{ github.event.issue.number || github.event.pull_request.number }}
           GITHUB_REPOSITORY:   ${{ github.repository }}
 
@@ -260,7 +279,7 @@ jobs:
               print("✅ Review comment posted", flush=True)
           PYEOF
         env:
-          GH_TOKEN:            ${{ secrets.PAT_TOKEN }}
+          GH_TOKEN:            ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           PR_NUMBER:           ${{ github.event.issue.number || github.event.pull_request.number }}
           GITHUB_REPOSITORY:   ${{ github.repository }}
 
@@ -296,7 +315,7 @@ jobs:
               print(f"✅ Formal review submitted: {verdict}", flush=True)
           PYEOF
         env:
-          GH_TOKEN:          ${{ secrets.PAT_TOKEN }}
+          GH_TOKEN:          ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           PR_NUMBER:         ${{ github.event.issue.number || github.event.pull_request.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         continue-on-error: true

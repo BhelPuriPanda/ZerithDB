@@ -95,7 +95,9 @@ function ClientCard({
   const borderColor = isBlue ? "border-blue-100" : "border-purple-100";
   const identityBorder = isBlue ? "border-blue-200" : "border-purple-200";
   const identityText = isBlue ? "text-blue-700" : "text-purple-700";
-  const identityIcon = isBlue ? "text-blue-500 hover:text-blue-700 hover:bg-blue-100" : "text-purple-500 hover:text-purple-700 hover:bg-purple-100";
+  const identityIcon = isBlue
+    ? "text-blue-500 hover:text-blue-700 hover:bg-blue-100"
+    : "text-purple-500 hover:text-purple-700 hover:bg-purple-100";
   const focusRingColor = isBlue
     ? "focus:ring-blue-500/20 focus:border-blue-500"
     : "focus:ring-purple-500/20 focus:border-purple-500";
@@ -116,10 +118,14 @@ function ClientCard({
 
       {/* Identity Display */}
       <div className={`${bgColor} px-4 py-3 border-b ${borderColor}`}>
-        <div className={`text-xs font-semibold ${isBlue ? "text-blue-900" : "text-purple-900"} mb-2 uppercase tracking-wide`}>
+        <div
+          className={`text-xs font-semibold ${isBlue ? "text-blue-900" : "text-purple-900"} mb-2 uppercase tracking-wide`}
+        >
           Identity (Ed25519 Mock)
         </div>
-        <div className={`flex items-center gap-2 bg-white rounded-lg px-3 py-2 border ${identityBorder}`}>
+        <div
+          className={`flex items-center gap-2 bg-white rounded-lg px-3 py-2 border ${identityBorder}`}
+        >
           <code className={`text-xs ${identityText} font-mono flex-1 truncate`}>
             {client.identity || "(generating...)"}
           </code>
@@ -139,10 +145,7 @@ function ClientCard({
         {isLoading ? (
           <div className="flex flex-col gap-3">
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="bg-white p-4 rounded-xl border border-gray-100 animate-pulse"
-              >
+              <div key={i} className="bg-white p-4 rounded-xl border border-gray-100 animate-pulse">
                 <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
                 <div className="h-3 bg-gray-100 rounded w-1/3" />
               </div>

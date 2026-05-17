@@ -159,8 +159,8 @@ export default function HomePlayground() {
             Interactive Playground
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Write ZerithDB-style queries in the editor, run them locally, and watch peer-to-peer sync
-            merge state in real time—no backend required.
+            Write ZerithDB-style queries in the editor, run them locally, and watch peer-to-peer
+            sync merge state in real time—no backend required.
           </p>
         </div>
 

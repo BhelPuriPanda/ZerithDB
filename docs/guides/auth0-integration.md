@@ -1,7 +1,7 @@
 # Auth0 integration with ZerithDB
 
-This guide shows how to attach Auth0 identity to ZerithDB peers and gate sync
-rooms based on Auth0 JWTs.
+This guide shows how to attach Auth0 identity to ZerithDB peers and gate sync rooms based on Auth0
+JWTs.
 
 ## Prerequisites
 
@@ -46,9 +46,8 @@ app.sync.enable();
 
 ## Gate sync room access
 
-Use the Auth0 access token to decide whether a peer can join a room. The simplest
-place to enforce this is in your signaling server or a backend endpoint that
-hands out room tokens.
+Use the Auth0 access token to decide whether a peer can join a room. The simplest place to enforce
+this is in your signaling server or a backend endpoint that hands out room tokens.
 
 ```ts
 import { verifyAuth0Token } from "zerithdb-auth-auth0";
@@ -67,5 +66,5 @@ export async function allowJoin(accessToken: string): Promise<boolean> {
 - Ensure the callback URL and web origin are listed in the Auth0 app settings.
 - If you use an audience, it must match the one configured in Auth0.
 - Tokens expire; handle refresh or re-authentication on the client.
-- `verifyAuth0Token` uses WebCrypto and `fetch`, so it must run in an
-  environment that provides them.
+- `verifyAuth0Token` uses WebCrypto and `fetch`, so it must run in an environment that provides
+  them.

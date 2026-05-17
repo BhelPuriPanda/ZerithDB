@@ -1,13 +1,15 @@
 import { defineConfig } from "vitest/config";
+import { resolve } from "path";
 
 export default defineConfig({
   resolve: {
     alias: {
-      "zerithdb-core": "/packages/core/src/index.ts",
-      "zerithdb-db": "/packages/db/src/index.ts",
-      "zerithdb-sync": "/packages/sync/src/index.ts",
-      "zerithdb-network": "/packages/network/src/index.ts",
-      "zerithdb-auth": "/packages/auth/src/index.ts",
+      "zerithdb-core": resolve(__dirname, "packages/core/src/index.ts"),
+      "zerithdb-db": resolve(__dirname, "packages/db/src/index.ts"),
+      "zerithdb-auth": resolve(__dirname, "packages/auth/src/index.ts"),
+      "zerithdb-sdk": resolve(__dirname, "packages/sdk/src/index.ts"),
+      "zerithdb-sync": resolve(__dirname, "packages/sync/src/index.ts"),
+      "zerithdb-network": resolve(__dirname, "packages/network/src/index.ts"),
     },
   },
   test: {

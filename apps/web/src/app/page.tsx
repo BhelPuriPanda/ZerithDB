@@ -13,8 +13,11 @@ import {
   CheckCircle,
   Terminal,
   FileCode,
+  Menu,
+  X,
+  ChevronUp,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 
@@ -44,8 +47,8 @@ const AnimatedDiagram = dynamic(
     ),
   }
 );
-
 import FrameworkSection from "@/components/FrameworkSection";
+import { useState, useEffect } from "react";
 
 const HomePlayground = dynamic(() => import("@/components/HomePlayground"), {
   ssr: false,
@@ -57,6 +60,26 @@ const HomePlayground = dynamic(() => import("@/components/HomePlayground"), {
 });
 
 export default function LandingPage() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
   const fadeInUp = {
     initial: { opacity: 0, y: 20 },
     whileInView: { opacity: 1, y: 0 },
@@ -77,7 +100,7 @@ export default function LandingPage() {
   return (
     <main className="flex flex-col min-h-screen bg-background text-foreground transition-colors duration-300 selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden">
       {/* ── HEADER ── */}
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md transition-colors duration-300">
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <motion.div
@@ -146,8 +169,83 @@ export default function LandingPage() {
             >
               Get Started
             </Link>
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden p-2 text-gray-700"
+              aria-label="Toggle Menu"
+            >
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
           </div>
         </div>
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="md:hidden absolute top-16 left-0 w-full overflow-hidden border-t border-gray-200 bg-white shadow-lg z-50"
+            >
+              <motion.nav
+                initial={{ y: -10 }}
+                animate={{ y: 0 }}
+                exit={{ y: -10 }}
+                transition={{ duration: 0.25 }}
+                className="flex flex-col gap-4 px-6 py-4 text-sm font-medium text-gray-700"
+              >
+                <Link
+                  href="/docs"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="hover:text-black transition-colors"
+                >
+                  Docs
+                </Link>
+
+                <Link
+                  href="#features"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="hover:text-black transition-colors"
+                >
+                  Features
+                </Link>
+
+                <Link
+                  href="#how-it-works"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="hover:text-black transition-colors"
+                >
+                  How it works
+                </Link>
+
+                <Link
+                  href="#compare"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="hover:text-black transition-colors"
+                >
+                  Compare
+                </Link>
+
+                <Link
+                  href="/playground"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-blue-600 font-semibold"
+                >
+                  Playground
+                </Link>
+
+                <a
+                  href="https://github.com/Zerith-Labs/ZerithDB"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-black transition-colors"
+                >
+                  GitHub
+                </a>
+              </motion.nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* ── 1. HERO SECTION ── */}
@@ -311,10 +409,10 @@ export default function LandingPage() {
           viewport={{ once: true }}
           className="container mx-auto px-6 flex flex-wrap justify-center gap-8 md:gap-16 opacity-60 grayscale"
         >
-          <div className="flex items-center gap-2 font-semibold text-lg text-gray-800">
+          <div className="flex items-center gap-2 font-semibold text-lg text-foreground">
             <Terminal className="w-5 h-5" /> Open Source
           </div>
-          <div className="flex items-center gap-2 font-semibold text-lg text-gray-800">
+          <div className="flex items-center gap-2 font-semibold text-lg text-foreground">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="24"
@@ -332,7 +430,7 @@ export default function LandingPage() {
             </svg>{" "}
             Built for Developers
           </div>
-          <div className="flex items-center gap-2 font-semibold text-lg text-gray-800">
+          <div className="flex items-center gap-2 font-semibold text-lg text-foreground">
             <Zap className="w-5 h-5" /> Zero Latency
           </div>
         </motion.div>
@@ -805,6 +903,7 @@ export default function LandingPage() {
             <Link href="/docs" className="hover:text-foreground transition-colors">
               Documentation
             </Link>
+
             <a
               href="https://github.com/Zerith-Labs/ZerithDB"
               target="_blank"
@@ -813,6 +912,7 @@ export default function LandingPage() {
             >
               GitHub
             </a>
+
             <Link
               href="/"
               onClick={() => toast("Blog will be available soon")}
@@ -820,6 +920,7 @@ export default function LandingPage() {
             >
               Blog
             </Link>
+
             <Link
               href="/"
               onClick={() => toast("Pricing will be available soon")}
@@ -833,7 +934,6 @@ export default function LandingPage() {
               rel="noopener noreferrer"
               className="hover:text-foreground transition-colors"
             >
-
               Discord
             </a>
           </div>
@@ -842,6 +942,21 @@ export default function LandingPage() {
             © {new Date().getFullYear()} ZerithDB. Open Source.
           </div>
         </div>
+        <AnimatePresence>
+          {showScrollTop && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 20 }}
+              transition={{ duration: 0.25 }}
+              onClick={scrollToTop}
+              className="fixed bottom-5 right-5 md:bottom-8 md:right-8 z-50 bg-black text-white p-3 rounded-full shadow-lg hover:bg-gray-800 transition-colors"
+              aria-label="Back to top"
+            >
+              <ChevronUp className="w-5 h-5" />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </footer>
       <SocialGraph />
     </main>

@@ -43,4 +43,4 @@ export type {
   SchemaLike,
 } from "zerithdb-core";
 
-export { ZerithDBError, ErrorCode, SchemaValidationError } from "zerithdb-core";
+export { ZerithDBError, ErrorCode, SchemaValidationError } from "zerithdb-errors";

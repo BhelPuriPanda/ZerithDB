@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  mergePlaygroundNotes,
-  type PlaygroundNote,
-} from "@/lib/playground-queries";
+import { mergePlaygroundNotes, type PlaygroundNote } from "@/lib/playground-queries";
 
 const INITIAL_NOTE: PlaygroundNote = {
   id: "seed",

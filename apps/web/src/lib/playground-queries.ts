@@ -35,10 +35,7 @@ function extractInsertPayload(source: string): Record<string, unknown> | null {
   }
 }
 
-export function runPlaygroundQuery(
-  source: string,
-  notes: PlaygroundNote[]
-): QueryRunResult {
+export function runPlaygroundQuery(source: string, notes: PlaygroundNote[]): QueryRunResult {
   const trimmed = source.trim();
   if (!trimmed) {
     return { ok: false, error: "Write a query before running." };

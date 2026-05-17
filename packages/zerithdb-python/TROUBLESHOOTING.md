@@ -45,9 +45,9 @@ Failed to build aiortc av
 
 ### Why this happens
 
-`aiortc` (the WebRTC library used by ZerithDB Python) depends on [PyAV](https://github.com/PyAV-Org/PyAV),
-which in turn requires **`ffmpeg`** (or `libav`) native media libraries to be present on your system
-**before** the Python package is compiled from source.
+`aiortc` (the WebRTC library used by ZerithDB Python) depends on
+[PyAV](https://github.com/PyAV-Org/PyAV), which in turn requires **`ffmpeg`** (or `libav`) native
+media libraries to be present on your system **before** the Python package is compiled from source.
 
 If `pip` cannot find a pre-built wheel for your platform/Python version, it falls back to building
 from source and that build will fail unless `ffmpeg` development headers are installed.
@@ -73,7 +73,8 @@ choco install ffmpeg
 
 **Option C : Manual install**
 
-1. Download a Windows build from <https://www.gyan.dev/ffmpeg/builds/> (choose the `full_build` zip).
+1. Download a Windows build from <https://www.gyan.dev/ffmpeg/builds/> (choose the `full_build`
+   zip).
 2. Extract it, e.g. to `C:\ffmpeg`.
 3. Add `C:\ffmpeg\bin` to your **System PATH** (Control Panel → System → Advanced → Environment
    Variables → `Path`).
@@ -174,10 +175,10 @@ ERROR: No matching distribution found for zerithdb
 
 **Causes & fixes:**
 
-| Cause | Fix |
-|---|---|
-| Python version too old | ZerithDB requires Python **3.9+**. Run `python --version` and upgrade if needed. |
-| Using `pip` from Python 2 | Use `pip3` or `python3 -m pip` explicitly. |
+| Cause                         | Fix                                                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| Python version too old        | ZerithDB requires Python **3.9+**. Run `python --version` and upgrade if needed.                  |
+| Using `pip` from Python 2     | Use `pip3` or `python3 -m pip` explicitly.                                                        |
 | Corporate proxy blocking PyPI | Set `HTTP_PROXY` / `HTTPS_PROXY` env vars, or use `pip install --trusted-host pypi.org zerithdb`. |
 
 ---

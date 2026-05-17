@@ -98,7 +98,7 @@ export async function initCommand(
     // Cleanup: remove the directory if it's mostly empty (failed halfway)
     try {
       const files = await fs.readdir(targetDir);
-      if (files.length < 3) { 
+      if (files.length < 3) {
         await fs.rm(targetDir, { recursive: true, force: true });
         console.log(chalk.gray("Cleaned up incomplete project directory."));
       }

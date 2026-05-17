@@ -122,6 +122,9 @@ const app = createApp({
   appId: "my-app-unique-id", // namespaces your local DB
   sync: {
     signalingUrl: "wss://signal.zerithdb.dev", // optional: use our hosted relay
+    ephemeral: {
+      throttleMs: 0, // immediate mute/speaker/stream metadata updates
+    },
     // or: signalingUrl: "ws://localhost:4000"  // self-hosted
   },
 });
@@ -151,6 +154,36 @@ backup.start();
 The backup adapter periodically exports the selected IndexedDB collections as a JSON snapshot and
 uploads it through a cloud target. ZerithDB includes Google Drive and Dropbox targets; applications
 remain responsible for obtaining the provider access token through their own OAuth flow.
+
+---
+
+### P2P Video Calls
+
+```typescript
+const app = createApp({
+  appId: "standup-room",
+  sync: { signalingUrl: "wss://signal.zerithdb.dev" },
+});
+
+await app.network.connect("standup-room");
+
+const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+app.video.publishStream(stream, { kind: "camera", label: "Ariyan camera" });
+
+app.video.setMuted("audio", true);
+app.video.setActiveSpeaker(app.network.peerId);
+
+app.video.on("stream:added", ({ peerId, stream }) => {
+  console.log("remote stream", peerId, stream);
+});
+
+app.video.on("participant:updated", (participant) => {
+  console.log(participant.muted, participant.streams, participant.activeSpeaker);
+});
+```
+
+Media travels over the existing WebRTC mesh. Mute status, active speaker, and stream metadata use
+ZerithDB ephemeral sync, so they are broadcast immediately and never persisted.
 
 ---
 
@@ -220,6 +253,52 @@ npx zerithdb types --output ./src/db.types.ts
 
 ---
 
+## Firebase Import
+
+Migrating from Firebase Realtime Database? ZerithDB includes a built-in import tool that converts
+Firebase JSON exports into ZerithDB-compatible collection files.
+
+```bash
+# Basic usage — reads Firebase export, writes one JSON file per collection
+node scripts/firebase-import.mjs ./firebase-export.json
+
+# Custom output directory
+node scripts/firebase-import.mjs ./firebase-export.json --out ./my-collections
+```
+
+**How it works:**
+
+- Each **top-level key** in the Firebase export becomes a **ZerithDB collection**
+- Each **child object** becomes a **document** in that collection
+- Arrays and nested objects within documents are **preserved as-is**
+- The original Firebase push key is stored as `_firebaseKey` for traceability
+- No external dependencies — uses only Node.js built-ins
+
+**Example input** (`firebase-export.json`):
+
+```json
+{
+  "users": {
+    "-Mxyz1": { "name": "Alice", "age": 30 },
+    "-Mxyz2": { "name": "Bob", "age": 25 }
+  },
+  "posts": {
+    "-Mabc1": { "title": "Hello", "tags": ["news", "update"] }
+  }
+}
+```
+
+**Example output** (`firebase-import-output/users.json`):
+
+```json
+[
+  { "_firebaseKey": "-Mxyz1", "name": "Alice", "age": 30 },
+  { "_firebaseKey": "-Mxyz2", "name": "Bob", "age": 25 }
+]
+```
+
+---
+
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md) for the phased plan.
@@ -269,3 +348,5 @@ Good places to start:
 Apache 2.0 — see [LICENSE](LICENSE).
 
 Built with ❤️ by the ZerithDB community.
+
+Contributor: YASHODHA (GSSoC 2026)

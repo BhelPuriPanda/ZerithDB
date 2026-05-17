@@ -36,5 +36,8 @@
   "files": [
     "dist",
     "src"
-  ]
+  ],
+  "dependencies": {
+    "zerithdb-errors": "workspace:*"
+  }
 }

@@ -46,6 +46,14 @@
     "zerithdb-eslint-config": "workspace:*",
     "zerithdb-tsconfig": "workspace:*"
   },
+"peerDependencies": {
+  "zod": "^3.x"
+},
+"peerDependenciesMeta": {
+  "zod": {
+    "optional": true
+  }
+},
   "files": [
     "dist",
     "src"
