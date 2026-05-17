@@ -8,8 +8,13 @@ interface PreviewProps {
   onReset: () => void;
 }
 
+interface LogEntry {
+  type: "log" | "error" | "warn" | "info";
+  content: unknown[];
+}
+
 const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -25,52 +30,53 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
 
     // Mock Console
     const mockConsole = {
-      log: (...args: any[]) => {
+      log: (...args: unknown[]) => {
         setLogs((prev) => [...prev, { type: "log", content: args }]);
       },
-      error: (...args: any[]) => {
+      error: (...args: unknown[]) => {
         setLogs((prev) => [...prev, { type: "error", content: args }]);
       },
-      warn: (...args: any[]) => {
+      warn: (...args: unknown[]) => {
         setLogs((prev) => [...prev, { type: "warn", content: args }]);
       },
-      info: (...args: any[]) => {
+      info: (...args: unknown[]) => {
         setLogs((prev) => [...prev, { type: "info", content: args }]);
       },
     };
 
     // Mock ZerithDB in-memory store
-    const memoryDB: Record<string, any[]> = {};
+    const memoryDB: Record<string, Record<string, unknown>[]> = {};
 
     const mockSDK = {
-      createApp: (config: any) => {
-        const appId = config?.appId || "demo-app";
+      createApp: (config: Record<string, unknown>) => {
+        const appId = (config?.appId as string) || "demo-app";
         
         return {
           appId,
           config,
           db: (collection: string) => ({
-            insert: async (data: any | any[]) => {
+            insert: async (data: Record<string, unknown> | Record<string, unknown>[]) => {
               if (!memoryDB[collection]) memoryDB[collection] = [];
               const docs = Array.isArray(data) ? data : [data];
               const docsWithId = docs.map(d => ({ 
                 ...d, 
-                id: d.id || Math.random().toString(36).substr(2, 9),
+                id: (d.id as string) || Math.random().toString(36).substring(2, 9),
                 _created: Date.now()
               }));
               memoryDB[collection].push(...docsWithId);
-              return Array.isArray(data) ? docsWithId.map(d => d.id) : docsWithId[0].id;
+              return Array.isArray(data) ? docsWithId.map(d => d.id as string) : docsWithId[0].id as string;
             },
-            find: async (filter: any = {}) => {
+            find: async (filter: Record<string, unknown> = {}) => {
               const docs = memoryDB[collection] || [];
               return docs.filter(doc => {
-                for (let key in filter) {
+                for (const key in filter) {
                   const val = filter[key];
                   if (typeof val === 'object' && val !== null) {
-                    if (val.$gt !== undefined && !(doc[key] > val.$gt)) return false;
-                    if (val.$lt !== undefined && !(doc[key] < val.$lt)) return false;
-                    if (val.$gte !== undefined && !(doc[key] >= val.$gte)) return false;
-                    if (val.$lte !== undefined && !(doc[key] <= val.$lte)) return false;
+                    const obj = val as Record<string, number>;
+                    if (obj.$gt !== undefined && !((doc[key] as number) > obj.$gt)) return false;
+                    if (obj.$lt !== undefined && !((doc[key] as number) < obj.$lt)) return false;
+                    if (obj.$gte !== undefined && !((doc[key] as number) >= obj.$gte)) return false;
+                    if (obj.$lte !== undefined && !((doc[key] as number) <= obj.$lte)) return false;
                   } else if (doc[key] !== val) {
                     return false;
                   }
@@ -78,20 +84,20 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
                 return true;
               });
             },
-            findOne: async (filter: any) => {
+            findOne: async (filter: Record<string, unknown>) => {
               const docs = memoryDB[collection] || [];
               return docs.find(doc => {
-                for (let key in filter) {
+                for (const key in filter) {
                   if (doc[key] !== filter[key]) return false;
                 }
                 return true;
               }) || null;
             },
-            update: async (filter: any, update: any) => {
+            update: async (filter: Record<string, unknown>, update: { $set?: Record<string, unknown> }) => {
               const docs = memoryDB[collection] || [];
               docs.forEach(doc => {
                 let match = true;
-                for (let key in filter) {
+                for (const key in filter) {
                   if (doc[key] !== filter[key]) match = false;
                 }
                 if (match && update.$set) {
@@ -99,11 +105,11 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
                 }
               });
             },
-            remove: async (filter: any) => {
+            remove: async (filter: Record<string, unknown>) => {
               if (!memoryDB[collection]) return;
               memoryDB[collection] = memoryDB[collection].filter(doc => {
                 let match = true;
-                for (let key in filter) {
+                for (const key in filter) {
                   if (doc[key] !== filter[key]) match = false;
                 }
                 return !match;
@@ -114,10 +120,14 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
             enable: () => mockConsole.log("Sync enabled for", appId),
             disable: () => mockConsole.log("Sync disabled for", appId),
             status: () => "connected",
-            on: (event: string, cb: Function) => mockConsole.log("Attached listener for", event)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            on: (event: string, cb: (...args: unknown[]) => void) => 
+              mockConsole.log("Attached listener for", event)
           },
           auth: {
-            getIdentity: () => ({ publicKey: "ed25519:mock_key_" + Math.random().toString(36).substr(2, 5) }),
+            getIdentity: () => ({ 
+              publicKey: "ed25519:mock_key_" + Math.random().toString(36).substring(2, 7) 
+            }),
             signIn: async () => mockConsole.log("Signed in as anonymous user"),
             signOut: async () => mockConsole.log("Signed out")
           },
@@ -147,8 +157,9 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
       
       const run = new Function("sdk", "console", functionBody);
       await run(mockSDK, mockConsole);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const errorObj = err as Error;
+      setError(errorObj.message);
       // Already logged to mock console if caught inside
     } finally {
       setIsRunning(false);
@@ -185,25 +196,25 @@ const Preview: React.FC<PreviewProps> = ({ code, onReset }) => {
 
       <div className="flex-1 p-4 font-mono text-sm overflow-y-auto bg-gray-900 text-gray-300">
         {logs.length === 0 && !error && (
-          <div className="text-gray-500 italic">Click "Run" to see the output...</div>
+          <div className="text-gray-500 italic">Click &quot;Run&quot; to see the output...</div>
         )}
         {logs.map((log, i) => (
           <div key={i} className="mb-2 last:mb-0 animate-in fade-in slide-in-from-left-1 duration-200">
             <span className="text-gray-500 mr-2">[{new Date().toLocaleTimeString()}]</span>
             {log.type === "error" ? (
-              <span className="text-red-400">✖ {log.content.map((c: any) => 
+              <span className="text-red-400">✖ {log.content.map(c => 
                 typeof c === 'object' ? JSON.stringify(c, null, 2) : String(c)
               ).join(' ')}</span>
             ) : log.type === "warn" ? (
-              <span className="text-yellow-400">⚠ {log.content.map((c: any) => 
+              <span className="text-yellow-400">⚠ {log.content.map(c => 
                 typeof c === 'object' ? JSON.stringify(c, null, 2) : String(c)
               ).join(' ')}</span>
             ) : log.type === "info" ? (
-              <span className="text-blue-400">ℹ {log.content.map((c: any) => 
+              <span className="text-blue-400">ℹ {log.content.map(c => 
                 typeof c === 'object' ? JSON.stringify(c, null, 2) : String(c)
               ).join(' ')}</span>
             ) : (
-              <span className="text-green-400">› {log.content.map((c: any) => 
+              <span className="text-green-400">› {log.content.map(c => 
                 typeof c === 'object' ? JSON.stringify(c, null, 2) : String(c)
               ).join(' ')}</span>
             )}

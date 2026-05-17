@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import Editor, { loader } from "@monaco-editor/react";
 
 // Configure Monaco before it mounts

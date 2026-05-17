@@ -63,13 +63,30 @@ export class CollectionClient<
     private readonly dexie: ZerithDBDexie,
     private readonly collectionName: string,
     private readonly validatorRegistry?: ValidatorRegistry,
-    private readonly onValidationError?: (
-      error: SchemaValidationError,
-    ) => void,
+    private readonly onValidationError?: (error: SchemaValidationError) => void,
   ) {}
 
+  /**
+   * Internal Dexie table accessor
+   */
   private get table(): Table<Document<T>> {
     return this.dexie.table(this.collectionName);
+  }
+
+  /**
+   * Subscribe to changes in the collection.
+   * Uses Dexie's liveQuery to reactively notify when documents change.
+   */
+  subscribe(callback: (documents: Document<T>[]) => void): () => void {
+    const observable = liveQuery(() => this.find({}));
+
+    const subscription = observable.subscribe({
+      next: (docs) => callback(docs as Document<T>[]),
+      error: (err) =>
+        console.error(`Subscription error in "${this.collectionName}":`, err),
+    });
+
+    return () => subscription.unsubscribe();
   }
 
   async insert(document: T): Promise<InsertResult> {
@@ -138,38 +155,20 @@ export class CollectionClient<
     );
   }
 
-  async update(
-    filter: QueryFilter<T>,
-    spec: UpdateSpec<T>,
-  ): Promise<number> {
-    try {
-      const matches = await this.find(filter);
-      const now = Date.now();
-      const updatedDocs = matches.map((doc) =>
-        this.applyUpdateSpec(doc, spec, now)
-      );
+  async update(filter: QueryFilter<T>, spec: UpdateSpec<T>): Promise<number> {
+    const matches = await this.find(filter);
+    const now = Date.now();
 
-      for (const doc of updatedDocs) {
-        this.runValidation(doc);
-      }
+    const updatedDocs = matches.map((doc) =>
+      this.applyUpdateSpec(doc, spec, now),
+    );
 
-      await this.table.bulkPut(updatedDocs);
-
-      return matches.length;
-    } catch (err) {
-      if (
-        err instanceof SchemaValidationError ||
-        (err instanceof Error && err.name === "SchemaValidationError")
-      ) {
-        throw err;
-      }
-
-      throw new ZerithDBError(
-        ErrorCode.DB_WRITE_FAILED,
-        `Failed to update documents in "${this.collectionName}"`,
-        { cause: err },
-      );
+    for (const doc of updatedDocs) {
+      this.runValidation(doc);
     }
+
+    await this.table.bulkPut(updatedDocs);
+    return matches.length;
   }
 
   async delete(filter: QueryFilter<T>): Promise<number> {
@@ -201,15 +200,6 @@ export class CollectionClient<
     return docs.length;
   }
 
-  subscribe(callback: (documents: Document<T>[]) => void): () => void {
-    const observable = liveQuery(() => this.find({}));
-    const sub = observable.subscribe({
-      next: (docs) => callback(docs as Document<T>[]),
-      error: (err) => console.error(`Subscription error in "${this.collectionName}":`, err),
-    });
-    return () => sub.unsubscribe();
-  }
-
   private applyUpdateSpec(
     doc: Document<T>,
     spec: UpdateSpec<T>,
@@ -232,10 +222,7 @@ export class CollectionClient<
     return next as Document<T>;
   }
 
-  private matchesFilter(
-    doc: Document<T>,
-    filter: QueryFilter<T>,
-  ): boolean {
+  private matchesFilter(doc: Document<T>, filter: QueryFilter<T>): boolean {
     for (const [key, condition] of Object.entries(filter)) {
       const fieldValue = (doc as Record<string, any>)[key];
 
@@ -258,14 +245,10 @@ export class CollectionClient<
 
       if ("$eq" in conditions && fieldValue !== conditions["$eq"]) return false;
       if ("$ne" in conditions && fieldValue === conditions["$ne"]) return false;
-      if ("$gt" in conditions && !((fieldValue as any) > (conditions["$gt"] as never)))
-        return false;
-      if ("$gte" in conditions && !((fieldValue as any) >= (conditions["$gte"] as never)))
-        return false;
-      if ("$lt" in conditions && !((fieldValue as any) < (conditions["$lt"] as never)))
-        return false;
-      if ("$lte" in conditions && !((fieldValue as any) <= (conditions["$lte"] as never)))
-        return false;
+      if ("$gt" in conditions && !(fieldValue > conditions["$gt"])) return false;
+      if ("$gte" in conditions && !(fieldValue >= conditions["$gte"])) return false;
+      if ("$lt" in conditions && !(fieldValue < conditions["$lt"])) return false;
+      if ("$lte" in conditions && !(fieldValue <= conditions["$lte"])) return false;
       if ("$in" in conditions && !(conditions["$in"] as unknown[]).includes(fieldValue))
         return false;
       if ("$nin" in conditions && (conditions["$nin"] as unknown[]).includes(fieldValue))
@@ -275,13 +258,6 @@ export class CollectionClient<
     return true;
   }
 
-  /**
-   * Validate a document against the collection's registered schema.
-   * Behavior depends on the validation mode:
-   *  - "strict": throws SchemaValidationError
-   *  - "warn": calls onValidationError callback
-   *  - "off" / no schema: no-op
-   */
   private runValidation(data: unknown, batchIndex?: number): void {
     if (!this.validatorRegistry) return;
 
@@ -312,7 +288,6 @@ export class CollectionClient<
     }
   }
 }
-
 /**
  * Internal database client.
  * Wraps Dexie and manages collection instances.
