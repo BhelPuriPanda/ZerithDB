@@ -135,7 +135,7 @@ export function createApp(config: ZerithDBConfig): ZerithDBApp {
   const auth = new AuthManager(resolvedConfig);
   const validatorRegistry = new ValidatorRegistry();
 
-  const db = new DbClient(resolvedConfig);
+  const db = new DbClient(resolvedConfig,auth);
   db.setValidatorRegistry(validatorRegistry);
 
   const network = new NetworkManager(resolvedConfig, auth);

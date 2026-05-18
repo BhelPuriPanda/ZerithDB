@@ -11,12 +11,17 @@ import type {
   ValidatorRegistry,
 } from "zerithdb-core";
 
-import { ZerithDBError, ErrorCode, SchemaValidationError } from "zerithdb-errors";
+import {
+  ZerithDBError,
+  ErrorCode,
+  SchemaValidationError,
+} from "zerithdb-errors";
 
 import { wrapIDBOperation } from "./internal/wrap-idb-operation.js";
 import type { BackupExportOptions, BackupSnapshot } from "./backup.js";
 import { GraphClient } from "./graph-client.js";
 import type { GraphNode, GraphEdge } from "zerithdb-core";
+
 /**
  * Internal Dexie subclass that manages dynamic collection creation.
  * Collections are added lazily via schema version upgrades.
@@ -30,11 +35,17 @@ class ZerithDBDexie extends Dexie {
     super(`zerithdb_${appId}`);
   }
 
+  /**
+   * Ensure a named collection exists, creating it via a Dexie version
+   * upgrade if it has not been registered yet.
+   *
+   * @param name - The collection name to create or retrieve
+   * @returns The Dexie Table handle for the collection
+   */
   ensureCollection(name: string): Table {
     if (!this.tableMap.has(name)) {
       this._currentSchema[name] = "_id, _createdAt, _updatedAt";
 
-      // We must increment the version for every new collection added dynamically
       const nextVersion = Math.max(this.verno, this._pendingVersion) + 1;
       this._pendingVersion = nextVersion;
 
@@ -46,16 +57,19 @@ class ZerithDBDexie extends Dexie {
       this.tableMap.set(name, this.table(name));
     }
 
-    return this.table(name);
+    return this.tableMap.get(name)!;
   }
 
-  ensureGraphTables(graphName: string): { nodesTable: Table; edgesTable: Table } {
+  ensureGraphTables(
+    graphName: string
+  ): { nodesTable: Table; edgesTable: Table } {
     const nodesKey = `__graph_nodes_${graphName}`;
     const edgesKey = `__graph_edges_${graphName}`;
 
     if (!this.tableMap.has(nodesKey) || !this.tableMap.has(edgesKey)) {
       this._currentSchema[nodesKey] = "_id, _createdAt, _updatedAt";
-      this._currentSchema[edgesKey] = "_id, from, to, label, _createdAt";
+      this._currentSchema[edgesKey] =
+        "_id, from, to, label, _createdAt";
 
       const nextVersion = Math.max(this.verno, this._pendingVersion) + 1;
       this._pendingVersion = nextVersion;
@@ -65,6 +79,7 @@ class ZerithDBDexie extends Dexie {
       }
 
       this.version(nextVersion).stores(this._currentSchema);
+
       this.tableMap.set(nodesKey, this.table(nodesKey));
       this.tableMap.set(edgesKey, this.table(edgesKey));
     }
@@ -80,12 +95,17 @@ class ZerithDBDexie extends Dexie {
  * Client for a specific collection.
  * Provides CRUD operations with optional schema validation.
  */
-export class CollectionClient<T extends Record<string, any> = Record<string, any>> {
+export class CollectionClient<
+  T extends Record<string, any> = Record<string, any>
+> {
   constructor(
     private readonly dexie: ZerithDBDexie,
     private readonly collectionName: string,
     private readonly validatorRegistry?: ValidatorRegistry,
-    private readonly onValidationError?: (error: SchemaValidationError) => void
+    private readonly onValidationError?: (
+      error: SchemaValidationError
+    ) => void,
+    private readonly auth?: any
   ) {}
 
   /**
@@ -93,6 +113,53 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
    */
   private get table(): Table<Document<T>> {
     return this.dexie.table(this.collectionName);
+  }
+
+  private async checkBiometric(
+    operationDescription: string
+  ): Promise<void> {
+    if (this.auth?.biometric?.isBiometricRequiredForDB()) {
+      const authorized = await this.auth.biometric.promptBiometric(
+        `Authorize sensitive database operation: ${operationDescription} in collection "${this.collectionName}"`
+      );
+
+      if (!authorized) {
+        throw new ZerithDBError(
+          ErrorCode.AUTH_SIGN_FAILED,
+          "Database operation cancelled or biometric authentication failed."
+        );
+      }
+    }
+  }
+
+  private runValidation(data: unknown, batchIndex?: number): void {
+    if (!this.validatorRegistry) return;
+
+    const result = this.validatorRegistry.validate(
+      this.collectionName,
+      data
+    );
+
+    if (result.valid) return;
+
+    const prefix =
+      batchIndex !== undefined
+        ? `Batch validation failed at index ${batchIndex} in`
+        : `Validation failed in`;
+
+    const error = new SchemaValidationError(
+      ErrorCode.DB_VALIDATION_FAILED,
+      `${prefix} "${this.collectionName}": ${result.issues
+        .map((i) => i.message)
+        .join(", ")}`,
+      result.issues
+    );
+
+    this.onValidationError?.(error);
+
+    if (result.shouldThrow) {
+      throw error;
+    }
   }
 
   /**
@@ -104,7 +171,11 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
 
     const subscription = observable.subscribe({
       next: (docs) => callback(docs as Document<T>[]),
-      error: (err) => console.error(`Subscription error in "${this.collectionName}":`, err),
+      error: (err) =>
+        console.error(
+          `Subscription error in "${this.collectionName}":`,
+          err
+        ),
     });
 
     return () => subscription.unsubscribe();
@@ -112,9 +183,15 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
 
   async insert(document: T): Promise<InsertResult> {
     if (document === null || document === undefined) {
-      throw new ZerithDBError(ErrorCode.DB_WRITE_FAILED, "Document cannot be null or undefined");
+      throw new ZerithDBError(
+        ErrorCode.DB_WRITE_FAILED,
+        "Document cannot be null or undefined"
+      );
     }
+
     this.runValidation(document);
+    await this.checkBiometric("Insert Document");
+
     const now = Date.now();
     const id = uuidv7();
 
@@ -137,18 +214,27 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
 
   async insertMany(documents: T[]): Promise<InsertResult[]> {
     if (!Array.isArray(documents) || documents.length === 0) {
-      throw new ZerithDBError(ErrorCode.DB_WRITE_FAILED, "Documents must be a non-empty array");
+      throw new ZerithDBError(
+        ErrorCode.DB_WRITE_FAILED,
+        "Documents must be a non-empty array"
+      );
     }
+
+    await this.checkBiometric("Bulk Insert Documents");
+
     for (let i = 0; i < documents.length; i++) {
       const doc = documents[i];
+
       if (doc === null || doc === undefined) {
         throw new ZerithDBError(
           ErrorCode.DB_WRITE_FAILED,
           "Documents array cannot contain null or undefined"
         );
       }
+
       this.runValidation(doc, i);
     }
+
     const now = Date.now();
 
     const docs = documents.map((doc) => ({
@@ -163,7 +249,10 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
       `Failed to bulk insert into collection "${this.collectionName}"`,
       async () => {
         await this.table.bulkAdd(docs);
-        return docs.map((d) => ({ id: d._id }));
+
+        return docs.map((d) => ({
+          id: d._id,
+        }));
       }
     );
   }
@@ -171,38 +260,53 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
   /**
    * Find documents matching a filter.
    * All filter fields are ANDed together.
-   *
-   * @example
-   * ```typescript
-   * const active = await todos.find({ done: false });
-   * const high = await todos.find({ priority: { $gte: 3 } });
-   * ```
    */
-  async find(filter: QueryFilter<T> = {}, options: QueryOptions = {}): Promise<Document<T>[]> {
+  async find(
+    filter: QueryFilter<T> = {},
+    options: QueryOptions<T> = {}
+  ): Promise<Document<T>[]> {
     return wrapIDBOperation(
       ErrorCode.DB_READ_FAILED,
       `Failed to query collection "${this.collectionName}"`,
       async () => {
         const compiledFilter = this.precompileRegexes(filter);
         const results: Document<T>[] = [];
-        let skipped = 0;
-        const offset = options.offset ?? 0;
+
+        await this.table.each((doc) => {
+          if (this.matchesFilter(doc, compiledFilter)) {
+            results.push(doc);
+          }
+        });
+
+        if (options.sort) {
+          const { field, order = "asc" } = options.sort;
+
+          results.sort((a, b) => {
+            const aValue = a[field];
+            const bValue = b[field];
+
+            if (aValue === bValue) return 0;
+
+            if (aValue == null) return 1;
+            if (bValue == null) return -1;
+
+            const comparison = String(aValue).localeCompare(
+              String(bValue),
+              undefined,
+              {
+                numeric: true,
+                sensitivity: "base",
+              }
+            );
+
+            return order === "desc" ? -comparison : comparison;
+          });
+        }
+
+        const skip = options.skip ?? options.offset ?? 0;
         const limit = options.limit ?? Number.POSITIVE_INFINITY;
 
-        await this.table
-          .toCollection()
-          .until(() => results.length >= limit)
-          .each((doc) => {
-            if (this.matchesFilter(doc, compiledFilter)) {
-              if (skipped < offset) {
-                skipped++;
-              } else {
-                results.push(doc);
-              }
-            }
-          });
-
-        return results;
+        return results.slice(skip, skip + limit);
       }
     );
   }
@@ -215,7 +319,10 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
     );
   }
 
-  async update(filter: QueryFilter<T>, spec: UpdateSpec<T>): Promise<number> {
+  async update(
+    filter: QueryFilter<T>,
+    spec: UpdateSpec<T>
+  ): Promise<number> {
     if (
       !spec ||
       Object.keys(spec).length === 0 ||
@@ -228,24 +335,32 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
       );
     }
 
+    await this.checkBiometric("Update Documents");
+
     try {
       const matches = await this.find(filter);
       const now = Date.now();
-      const updatedDocs = matches.map((doc) => this.applyUpdateSpec(doc, spec, now));
+
+      const updatedDocs = matches.map((doc) =>
+        this.applyUpdateSpec(doc, spec, now)
+      );
 
       for (const doc of updatedDocs) {
         this.runValidation(doc);
       }
 
       await this.table.bulkPut(updatedDocs);
+
       return matches.length;
     } catch (err) {
       if (
         err instanceof SchemaValidationError ||
-        (err instanceof Error && err.name === "SchemaValidationError")
+        (err instanceof Error &&
+          err.name === "SchemaValidationError")
       ) {
         throw err;
       }
+
       throw new ZerithDBError(
         ErrorCode.DB_WRITE_FAILED,
         `Failed to update documents in "${this.collectionName}"`,
@@ -255,18 +370,24 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
   }
 
   async delete(filter: QueryFilter<T>): Promise<number> {
+    await this.checkBiometric("Delete Documents");
+
     return wrapIDBOperation(
       ErrorCode.DB_DELETE_FAILED,
       `Failed to delete documents from "${this.collectionName}"`,
       async () => {
         const matches = await this.find(filter);
+
         await this.table.bulkDelete(matches.map((d) => d._id));
+
         return matches.length;
       }
     );
   }
 
   async clearAll(): Promise<void> {
+    await this.checkBiometric("Clear Collection");
+
     return wrapIDBOperation(
       ErrorCode.DB_DELETE_FAILED,
       `Failed to clear collection "${this.collectionName}"`,
@@ -284,6 +405,7 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
       `Failed to count documents in "${this.collectionName}"`,
       async () => {
         const compiledFilter = this.precompileRegexes(filter);
+
         let total = 0;
 
         await this.table.each((doc) => {
@@ -297,7 +419,11 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
     );
   }
 
-  private applyUpdateSpec(doc: Document<T>, spec: UpdateSpec<T>, updatedAt: number): Document<T> {
+  private applyUpdateSpec(
+    doc: Document<T>,
+    spec: UpdateSpec<T>,
+    updatedAt: number
+  ): Document<T> {
     const next = {
       ...doc,
       ...(spec.$set ?? {}),
@@ -314,7 +440,10 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
     return next as Document<T>;
   }
 
-  private matchesFilter(doc: Document<T>, filter: QueryFilter<T>): boolean {
+  private matchesFilter(
+    doc: Document<T>,
+    filter: QueryFilter<T>
+  ): boolean {
     for (const [key, condition] of Object.entries(filter)) {
       const fieldValue = (doc as Record<string, any>)[key];
 
@@ -324,25 +453,69 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
       }
 
       const conditions = condition as Record<string, any>;
-      const isOperatorObject = Object.keys(conditions).some((k) => k.startsWith("$"));
+
+      const isOperatorObject = Object.keys(conditions).some((k) =>
+        k.startsWith("$")
+      );
 
       if (!isOperatorObject) {
-        if (JSON.stringify(fieldValue) !== JSON.stringify(condition)) {
+        if (
+          JSON.stringify(fieldValue) !== JSON.stringify(condition)
+        ) {
           return false;
         }
+
         continue;
       }
 
-      if ("$eq" in conditions && fieldValue !== conditions["$eq"]) return false;
-      if ("$ne" in conditions && fieldValue === conditions["$ne"]) return false;
-      if ("$gt" in conditions && !(fieldValue > conditions["$gt"])) return false;
-      if ("$gte" in conditions && !(fieldValue >= conditions["$gte"])) return false;
-      if ("$lt" in conditions && !(fieldValue < conditions["$lt"])) return false;
-      if ("$lte" in conditions && !(fieldValue <= conditions["$lte"])) return false;
-      if ("$in" in conditions && !(conditions["$in"] as unknown[]).includes(fieldValue))
+      if (
+        "$eq" in conditions &&
+        fieldValue !== conditions["$eq"]
+      )
         return false;
-      if ("$nin" in conditions && (conditions["$nin"] as unknown[]).includes(fieldValue))
+
+      if (
+        "$ne" in conditions &&
+        fieldValue === conditions["$ne"]
+      )
         return false;
+
+      if (
+        "$gt" in conditions &&
+        !(fieldValue > conditions["$gt"])
+      )
+        return false;
+
+      if (
+        "$gte" in conditions &&
+        !(fieldValue >= conditions["$gte"])
+      )
+        return false;
+
+      if (
+        "$lt" in conditions &&
+        !(fieldValue < conditions["$lt"])
+      )
+        return false;
+
+      if (
+        "$lte" in conditions &&
+        !(fieldValue <= conditions["$lte"])
+      )
+        return false;
+
+      if (
+        "$in" in conditions &&
+        !(conditions["$in"] as unknown[]).includes(fieldValue)
+      )
+        return false;
+
+      if (
+        "$nin" in conditions &&
+        (conditions["$nin"] as unknown[]).includes(fieldValue)
+      )
+        return false;
+
       if ("$exists" in conditions) {
         const exists = key in doc;
 
@@ -350,13 +523,17 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
           return false;
         }
       }
+
       if ("$regex" in conditions) {
         if (typeof fieldValue !== "string") {
           return false;
         }
 
-        const regex =
-          conditions.$regex instanceof RegExp ? conditions.$regex : new RegExp(conditions.$regex);
+        const regex = conditions.$regex;
+
+        if (!(regex instanceof RegExp)) {
+          return false;
+        }
 
         regex.lastIndex = 0;
 
@@ -369,49 +546,71 @@ export class CollectionClient<T extends Record<string, any> = Record<string, any
     return true;
   }
 
-  private precompileRegexes(filter: QueryFilter<T>): QueryFilter<T> {
+  private precompileRegexes(
+    filter: QueryFilter<T>
+  ): QueryFilter<T> {
     const compiled: Record<string, any> = {};
+
     for (const [key, condition] of Object.entries(filter)) {
       if (condition !== null && typeof condition === "object") {
-        const conditions = { ...condition } as Record<string, any>;
-        const isOperatorObject = Object.keys(conditions).some((k) => k.startsWith("$"));
+        const conditions = {
+          ...condition,
+        } as Record<string, any>;
+
+        const isOperatorObject = Object.keys(conditions).some((k) =>
+          k.startsWith("$")
+        );
+
         if (isOperatorObject && "$regex" in conditions) {
-          const regex = conditions["$regex"];
-          conditions["$regex"] = regex instanceof RegExp ? regex : new RegExp(regex);
+          conditions["$regex"] =
+            this.compileRegexCondition(conditions);
         }
+
         compiled[key] = conditions;
       } else {
         compiled[key] = condition;
       }
     }
+
     return compiled as QueryFilter<T>;
   }
 
-  private runValidation(data: unknown, batchIndex?: number): void {
-    if (!this.validatorRegistry) return;
+  private compileRegexCondition(
+    conditions: Record<string, any>
+  ): RegExp | null {
+    const rawRegex = conditions.$regex;
 
-    const result = this.validatorRegistry.validate(this.collectionName, data);
+    const rawFlags =
+      typeof conditions.$flags === "string"
+        ? conditions.$flags
+        : typeof conditions.$options === "string"
+          ? conditions.$options
+          : undefined;
 
-    if (result.valid) return;
+    try {
+      if (rawRegex instanceof RegExp) {
+        if (!rawFlags) {
+          return rawRegex;
+        }
 
-    const prefix =
-      batchIndex !== undefined
-        ? `Batch validation failed at index ${batchIndex} in`
-        : `Validation failed in`;
+        const mergedFlags = Array.from(
+          new Set((rawRegex.flags + rawFlags).split(""))
+        ).join("");
 
-    const error = new SchemaValidationError(
-      ErrorCode.DB_VALIDATION_FAILED,
-      `${prefix} "${this.collectionName}": ${result.issues.map((i) => i.message).join(", ")}`,
-      result.issues
-    );
+        return new RegExp(rawRegex.source, mergedFlags);
+      }
 
-    this.onValidationError?.(error);
+      if (typeof rawRegex === "string") {
+        return new RegExp(rawRegex, rawFlags);
+      }
 
-    if (result.shouldThrow) {
-      throw error;
+      return null;
+    } catch {
+      return null;
     }
   }
 }
+
 /**
  * Internal database client.
  * Wraps Dexie and manages collection instances.
@@ -421,12 +620,19 @@ export class DbClient {
   private readonly appId: string;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private readonly collections = new Map<string, CollectionClient<any>>();
+  private readonly collections = new Map<
+    string,
+    CollectionClient<any>
+  >();
 
-  private validatorRegistry?: ValidatorRegistry;
   private readonly graphs = new Map<string, GraphClient<any>>();
 
-  constructor(config: ZerithDBConfig) {
+  private validatorRegistry?: ValidatorRegistry;
+
+  constructor(
+    config: ZerithDBConfig,
+    private readonly auth?: any
+  ) {
     this.appId = config.appId;
     this.dexie = new ZerithDBDexie(config.appId);
   }
@@ -435,39 +641,64 @@ export class DbClient {
     this.validatorRegistry = registry;
   }
 
-  collection<T extends Record<string, any>>(name: string): CollectionClient<T> {
+  collection<T extends Record<string, any>>(
+    name: string
+  ): CollectionClient<T> {
     if (typeof name !== "string" || name.trim() === "") {
       throw new ZerithDBError(
         ErrorCode.DB_INIT_FAILED,
         "Collection name must be a non-empty string"
       );
     }
+
     if (!this.collections.has(name)) {
       this.dexie.ensureCollection(name);
 
-      this.collections.set(name, new CollectionClient<T>(this.dexie, name, this.validatorRegistry));
+      this.collections.set(
+        name,
+        new CollectionClient<T>(
+          this.dexie,
+          name,
+          this.validatorRegistry,
+          undefined,
+          this.auth
+        )
+      );
     }
 
     return this.collections.get(name) as CollectionClient<T>;
   }
 
-  graph<T extends Record<string, any> = Record<string, any>>(name: string): GraphClient<T> {
+  graph<T extends Record<string, any> = Record<string, any>>(
+    name: string
+  ): GraphClient<T> {
     if (!this.graphs.has(name)) {
-      const { nodesTable, edgesTable } = this.dexie.ensureGraphTables(name);
+      const { nodesTable, edgesTable } =
+        this.dexie.ensureGraphTables(name);
+
       this.graphs.set(
         name,
-        new GraphClient<T>(nodesTable as Table<GraphNode<T>>, edgesTable as Table<GraphEdge>, name)
+        new GraphClient<T>(
+          nodesTable as Table<GraphNode<T>>,
+          edgesTable as Table<GraphEdge>,
+          name
+        )
       );
     }
+
     return this.graphs.get(name) as GraphClient<T>;
   }
 
-  async getMemoryStats(): Promise<{ recordCount: number; collections: Record<string, number> }> {
+  async getMemoryStats(): Promise<{
+    recordCount: number;
+    collections: Record<string, number>;
+  }> {
     const collections: Record<string, number> = {};
     let recordCount = 0;
 
     for (const [name, client] of this.collections) {
       const count = await client.count();
+
       collections[name] = count;
       recordCount += count;
     }
@@ -483,19 +714,39 @@ export class DbClient {
     return this.dexie.tables.map((t) => t.name);
   }
 
-  async exportSnapshot(options: BackupExportOptions = {}): Promise<BackupSnapshot> {
+  async exportSnapshot(
+    options: BackupExportOptions = {}
+  ): Promise<BackupSnapshot> {
+    if (this.auth?.biometric?.isBiometricRequiredForDB()) {
+      const authorized =
+        await this.auth.biometric.promptBiometric(
+          "Authorize sensitive operation: Export full database backup snapshot"
+        );
+
+      if (!authorized) {
+        throw new ZerithDBError(
+          ErrorCode.AUTH_SIGN_FAILED,
+          "Database export cancelled or biometric authentication failed."
+        );
+      }
+    }
+
     return wrapIDBOperation(
       ErrorCode.DB_READ_FAILED,
       "Failed to export local backup snapshot",
       async () => {
-        const collectionNames = options.collections ?? this.allCollectionNames();
+        const collectionNames =
+          options.collections ?? this.allCollectionNames();
 
         const collections: BackupSnapshot["collections"] = {};
 
         for (const name of collectionNames) {
           const table = this.dexie.ensureCollection(name);
 
-          collections[name] = (await table.toArray()) as Document<Record<string, any>>[];
+          collections[name] =
+            (await table.toArray()) as Document<
+              Record<string, any>
+            >[];
         }
 
         return {
