@@ -5,12 +5,13 @@ import type { Document, Identity, QueryFilter, SyncState } from "zerithdb-core";
 export type { Document, Identity, QueryFilter, SyncState, ZerithDBConfig, CollectionOptions };
 import { MemoryCollector, estimateStorageBytes } from "zerithdb-devtools";
 import { ZerithDBError, ErrorCode } from "zerithdb-core";
-import { DbClient, CollectionClient } from "zerithdb-db";
-import type { CloudBackupTarget, LocalCloudBackupOptions } from "zerithdb-db";
-import { LocalCloudBackupAdapter } from "zerithdb-db";
-import { SyncEngine } from "zerithdb-sync";
-import { AuthManager } from "zerithdb-auth";
-import { NetworkManager } from "zerithdb-network";
+import { DbClient, CollectionClient } from "./db-client.js";
+import type { CloudBackupTarget, LocalCloudBackupOptions } from "./db-client.js";
+import { LocalCloudBackupAdapter } from "./db-client.js";
+import { SyncEngine } from "./sync-engine.js";
+import { AuthManager } from "./auth-manager.js";
+import { NetworkManager } from "./network-manager.js";
+import { LLMConflictResolver } from "./conflict-resolution/resolver.js";
 
 /**
  * The root ZerithDB application instance returned by {@link createApp}.
@@ -20,14 +21,22 @@ export interface ZerithDBApp {
    * Access a database collection by name.
    * The collection is created lazily on first use.
    *
+   * Optionally pass a `schema` validator (e.g. a Zod schema) to enable
+   * runtime document validation before any insert or update.
+   *
    * @param name - Collection name (e.g. `"todos"`, `"messages"`)
-   * @returns A typed {@link DbClient} for querying and mutating documents.
+   * @param options - Optional collection config (e.g. `{ schema: zodSchema }`)
+   * @returns A typed {@link CollectionClient} for querying and mutating documents.
    *
    * @example
    * ```typescript
-   * const todos = app.db("todos");
-   * await todos.insert({ text: "Hello", done: false });
-   * const all = await todos.find({});
+   * import { z } from "zod";
+   * const TodoSchema = z.object({ text: z.string(), done: z.boolean() });
+   * type Todo = z.infer<typeof TodoSchema>;
+   *
+   * const todos = app.db<Todo>("todos", { schema: TodoSchema });
+   * await todos.insert({ text: "Hello", done: false }); // ✅ valid
+   * await todos.insert({ text: "", done: false });       // ❌ throws DB_VALIDATION_FAILED
    * ```
    */
   db<T extends Record<string, any> = Record<string, any>>(
@@ -191,6 +200,8 @@ export function createApp(config: ZerithDBConfig): ZerithDBApp {
 
       return collectionCache.get(name) as CollectionClient<T>;
     },
+
+    dbClient: db,
 
     sync,
     auth,

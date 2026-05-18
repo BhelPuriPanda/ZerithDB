@@ -4,9 +4,11 @@ import { EventEmitter, ValidatorRegistry } from "zerithdb-core";
 import type { ZerithDBConfig, SyncState, SyncPlugin } from "zerithdb-core";
 import type { DbClient } from "zerithdb-db";
 import type { NetworkManager } from "zerithdb-network";
+import { lwwMerge } from "./merge/lww.js";
+import { crdtMerge } from "./merge/crdt.js";
 import { InboxQueue } from "./queue/InboxQueue.js";
 import { OutboxQueue } from "./queue/OutboxQueue.js";
-import { EphemeralStateManager } from "./ephemeral-state.js";
+import { createQueueStorage } from "./queue/queue-db.js";
 import { bytesToBase64, base64ToBytes } from "zerithdb-utils";
 
 type SyncEvents = {
@@ -21,9 +23,9 @@ type SyncEvents = {
 };
 
 /**
- * CRDT sync engine — manages one Yjs Y.Doc per collection.
- * Local writes update the Y.Doc, which generates binary deltas sent to peers.
- * Incoming peer deltas are applied to the Y.Doc, which reactively updates the DB.
+ * Deterministic sync engine using Vector Clocks and Lamport timestamps.
+ * Replaces Yjs with an explicit state-based replication protocol.
+ * Integrates Inbox/Outbox queues to handle offline-first mutation logging.
  */
 export class SyncEngine extends EventEmitter<SyncEvents> {
   /** Low-latency, non-persistent metadata sync for presence, media, and UI state. */
@@ -62,6 +64,7 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     this.ephemeral = new EphemeralStateManager(config, network);
 
     this.onPeerUpdate = this.onPeerUpdate.bind(this);
+    this.onLocalMutation = this.onLocalMutation.bind(this);
     this.onPeerConnected = this.onPeerConnected.bind(this);
     this.onPeerDisconnected = this.onPeerDisconnected.bind(this);
 
@@ -70,10 +73,6 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     });
 
     void this.refreshPendingCount();
-
-    if (typeof document !== "undefined") {
-      document.addEventListener("visibilitychange", this.handleVisibilityChange);
-    }
   }
 
   private handleVisibilityChange = (): void => {
@@ -106,6 +105,11 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     this.ephemeral.enable();
     this.updateState({ synced: true, connectedPeers: this.network.connectedPeerCount });
     void this.flushOutbox();
+
+    // Start background anti-entropy sync (every 100ms) to guarantee strong eventual consistency
+    this.antiEntropyTimer = setInterval(() => {
+      this.triggerAntiEntropy();
+    }, 100);
   }
 
   disable(): void {
@@ -113,10 +117,9 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
 
     this.network.off("message", this.onPeerUpdate);
     this.network.off("peer:connected", this.onPeerConnected);
-    this.network.off("peer:disconnected", this.onPeerDisconnected);
+  this.network.off("peer:disconnected", this.onPeerDisconnected);
     this.ephemeral.disable();
     this.updateState({ synced: false, connectedPeers: 0 });
-  }
 
   registerPlugin(plugin: SyncPlugin): void {
     this.plugins.set(plugin.id, plugin);
@@ -175,8 +178,7 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
   }
 
   /**
-   * Apply a remote CRDT update to the local document.
-   * Called by the network layer when a peer sends an update.
+   * Apply a remote update to the local database with deterministic conflict resolution.
    */
   async applyRemoteUpdate(
     collectionName: string,
@@ -401,12 +403,14 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     fromPeer: string
   ): Promise<void> {
     let mutationId: string | null = null;
-
     try {
+      const rawPayload = typeof msg.payload === "string" ? msg.payload : new TextDecoder().decode(msg.payload);
+      const { collectionName, doc, peerId } = JSON.parse(rawPayload);
+      
       const mutation = await this.inbox.enqueue({
         type: "sync-update",
         collection: collectionName,
-        payload: update,
+        payload: doc,
       });
 
       mutationId = mutation.id;
@@ -435,9 +439,33 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     }
   }
 
+  private onPeerConnected(peer: { peerId: string }): void {
+  const peerId = peer.peerId;
+    this.updateState({ connectedPeers: this.network.connectedPeerCount });
+    void this.sendCapability(peerId);
+    void this.flushOutbox();
+
+    if (peer?.peerId) {
+      for (const [collectionName, doc] of this.docs.entries()) {
+        const stateVector = Y.encodeStateVector(doc);
+        this.network.sendTo(peer.peerId, {
+          type: "sync-request",
+          payload: this.encodeMessage(collectionName, stateVector),
+        });
+      }
+    }
+  }
+
+  private onPeerDisconnected(peer: { peerId: string }): void {
+  const peerId = peer.peerId;
+    this.peerCapabilities.delete(peerId);
+    this.updateState({ connectedPeers: this.network.connectedPeerCount });
+  }
+
   private async flushOutbox(): Promise<void> {
     if (!this._enabled) return;
     if (this.network.connectedPeerCount === 0) return;
+    if (this.isFlushing) return;
 
     const pending = await this.outbox.getPending();
 
@@ -488,6 +516,26 @@ export class SyncEngine extends EventEmitter<SyncEvents> {
     } catch {
       return null;
     }
+  }
+
+  private compareVectorClocks(v1: Record<string, number>, v2: Record<string, number>): "less" | "greater" | "equal" | "concurrent" {
+    let v1Greater = false;
+    let v2Greater = false;
+
+    const allKeys = new Set([...Object.keys(v1), ...Object.keys(v2)]);
+
+    for (const key of allKeys) {
+      const c1 = v1[key] || 0;
+      const c2 = v2[key] || 0;
+
+      if (c1 > c2) v1Greater = true;
+      if (c2 > c1) v2Greater = true;
+    }
+
+    if (v1Greater && v2Greater) return "concurrent";
+    if (v1Greater) return "greater";
+    if (v2Greater) return "less";
+    return "equal";
   }
 
   private updateState(partial: Partial<SyncState>): void {

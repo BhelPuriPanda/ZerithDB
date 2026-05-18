@@ -1,4 +1,4 @@
-import Dexie, { type Table, liveQuery } from "dexie";
+import { Dexie, type Table, liveQuery } from "dexie";
 import { v7 as uuidv7 } from "uuid";
 
 import type {
@@ -18,6 +18,7 @@ import {
 } from "zerithdb-errors";
 
 import { wrapIDBOperation } from "./internal/wrap-idb-operation.js";
+import { EventEmitter } from "zerithdb-core";
 import type { BackupExportOptions, BackupSnapshot } from "./backup.js";
 import { GraphClient } from "./graph-client.js";
 import type { GraphNode, GraphEdge } from "zerithdb-core";
@@ -196,10 +197,13 @@ export class CollectionClient<
     const id = uuidv7();
 
     const doc: Document<T> = {
-      ...document,
+      ...docToInsert,
       _id: id,
       _createdAt: now,
       _updatedAt: now,
+      _vclock: { [this.peerId]: 1 },
+      _lamport: now,
+      _deleted: false,
     };
 
     return wrapIDBOperation(
@@ -207,6 +211,7 @@ export class CollectionClient<
       `Failed to insert into collection "${this.collectionName}"`,
       async () => {
         await this.table.add(doc);
+        this.emit("mutation", { collectionName: this.collectionName, doc, type: "insert" });
         return { id };
       }
     );
@@ -239,11 +244,19 @@ export class CollectionClient<
 
     const docs = documents.map((doc) => ({
       ...doc,
-      _id: uuidv7(),
+      _id: ids[i]!,
       _createdAt: now,
       _updatedAt: now,
+      _vclock: { [this.peerId]: 1 },
+      _lamport: now,
+      _deleted: false,
     })) as Document<T>[];
-
+    if (!documents || documents.length === 0) {
+      throw new ZerithDBError(ErrorCode.DB_WRITE_FAILED, "insertMany requires a non-empty array");
+    }
+    if (documents.some((d) => (d as any) === null || (d as any) === undefined)) {
+      throw new ZerithDBError(ErrorCode.DB_WRITE_FAILED, "insertMany array must not contain null or undefined");
+    }
     return wrapIDBOperation(
       ErrorCode.DB_WRITE_FAILED,
       `Failed to bulk insert into collection "${this.collectionName}"`,
@@ -254,7 +267,15 @@ export class CollectionClient<
           id: d._id,
         }));
       }
-    );
+
+      return results;
+    } catch (err) {
+      throw new ZerithDBError(
+        ErrorCode.DB_WRITE_FAILED,
+        `Failed to bulk insert into collection "${this.collectionName}"`,
+        { cause: err }
+      );
+    }
   }
 
   /**
@@ -269,6 +290,7 @@ export class CollectionClient<
       ErrorCode.DB_READ_FAILED,
       `Failed to query collection "${this.collectionName}"`,
       async () => {
+        const all = await this.table.toArray();
         const compiledFilter = this.precompileRegexes(filter);
         const results: Document<T>[] = [];
 
@@ -315,8 +337,13 @@ export class CollectionClient<
     return wrapIDBOperation(
       ErrorCode.DB_READ_FAILED,
       `Failed to get document "${id}" from "${this.collectionName}"`,
-      () => this.table.get(id)
+      async () => {
+        const doc = await this.table.get(id);
+        return doc && !doc._deleted ? doc : undefined;
+      }
     );
+    if (!doc) return undefined;
+    return this.restoreIpfsReferences(doc);
   }
 
   async update(
@@ -382,7 +409,15 @@ export class CollectionClient<
 
         return matches.length;
       }
-    );
+
+      return deletedCount;
+    } catch (err) {
+      throw new ZerithDBError(
+        ErrorCode.DB_DELETE_FAILED,
+        `Failed to delete documents from "${this.collectionName}"`,
+        { cause: err }
+      );
+    }
   }
 
   async clearAll(): Promise<void> {
@@ -391,7 +426,13 @@ export class CollectionClient<
     return wrapIDBOperation(
       ErrorCode.DB_DELETE_FAILED,
       `Failed to clear collection "${this.collectionName}"`,
-      () => this.table.clear()
+      async () => {
+        await this.table.clear();
+        // Reset the integer sequence so IDs restart from 1 after a clear
+        if (this.idStrategy === "autoincrement") {
+          await this.seqTable.delete(this.collectionName);
+        }
+      }
     );
   }
 
@@ -436,6 +477,7 @@ export class CollectionClient<
 
     next._id = doc._id;
     next._createdAt = doc._createdAt;
+    next._updatedAt = updatedAt;
 
     return next as Document<T>;
   }
@@ -611,11 +653,15 @@ export class CollectionClient<
   }
 }
 
+// ---------------------------------------------------------------------------
+// Internal Dexie subclass
+// ---------------------------------------------------------------------------
+
 /**
  * Internal database client.
  * Wraps Dexie and manages collection instances.
  */
-export class DbClient {
+export class DbClient extends EventEmitter<{ "mutation": { collection: string } }> {
   private readonly dexie: ZerithDBDexie;
   private readonly appId: string;
 
@@ -635,6 +681,8 @@ export class DbClient {
   ) {
     this.appId = config.appId;
     this.dexie = new ZerithDBDexie(config.appId);
+    // Simplified peerId generation - in production this should be stable
+    this.peerId = uuidv7();
   }
 
   setValidatorRegistry(registry: ValidatorRegistry): void {
@@ -696,7 +744,9 @@ export class DbClient {
     const collections: Record<string, number> = {};
     let recordCount = 0;
 
-    for (const [name, client] of this.collections) {
+    for (const [key, client] of this.collections) {
+      // Strip the ":uuid" / ":autoincrement" suffix for the stat label
+      const name = key.split(":")[0]!;
       const count = await client.count();
 
       collections[name] = count;
@@ -707,11 +757,12 @@ export class DbClient {
   }
 
   collectionNames(): string[] {
-    return Array.from(this.collections.keys());
+    // Deduplicate in case same collection opened with different strategies
+    return [...new Set(Array.from(this.collections.keys()).map((k) => k.split(":")[0]!))];
   }
 
   allCollectionNames(): string[] {
-    return this.dexie.tables.map((t) => t.name);
+    return this.dexie.tables.map((t) => t.name).filter((name) => !name.startsWith("_"));
   }
 
   async exportSnapshot(
@@ -760,6 +811,9 @@ export class DbClient {
   }
 
   async dispose(): Promise<void> {
+    // Remove all EventEmitter listeners before closing to prevent memory leaks
+    // from dangling references to this DbClient instance after disposal.
+    this.removeAllListeners();
     this.dexie.close();
   }
 }

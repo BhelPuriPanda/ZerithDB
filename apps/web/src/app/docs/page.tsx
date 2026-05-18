@@ -5,8 +5,6 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import {
   ArrowLeft,
-  Copy,
-  Check,
   Terminal,
   Search,
   Book,
@@ -18,8 +16,14 @@ import {
   FileText,
   Menu,
   X,
+  Shield,
+  Brain,
+  ShoppingCart,
+  MessageSquare,
+  Smartphone,
+  Gamepad2,
 } from "lucide-react";
-
+import CopyCodeBlock from "@/components/CopyCodeBlock";
 type Framework = {
   id: string;
   name: string;
@@ -109,6 +113,11 @@ const SIDEBAR_LINKS = [
       "Offline-First Storage",
       "Conflict Resolution",
     ],
+  },
+  {
+    category: "Applications",
+    icon: Globe,
+    items: ["Real-World Applications"],
   },
   {
     category: "API Reference",
@@ -238,6 +247,250 @@ const DOC_CONTENT: Record<string, React.ReactNode> = {
       </p>
     </div>
   ),
+  "Real-World Applications": (
+    <div className="space-y-10 text-muted-foreground transition-colors duration-300">
+
+      <div className="space-y-4">
+        <p className="text-lg leading-8 max-w-3xl">
+          ZerithDB enables developers to build local-first, peer-to-peer
+          applications that remain responsive even without internet connectivity.
+          Its CRDT-powered synchronization and offline-first architecture make it
+          suitable for collaborative, real-time, and privacy-focused systems.
+        </p>
+      </div>
+
+      {/* APPLICATIONS */}
+      <div className="space-y-4">
+
+        {/* Collaboration */}
+        <div className="border border-border rounded-xl p-5 bg-background transition-colors">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+              <MessageSquare className="w-5 h-5 text-blue-500" />
+            </div>
+
+            <div className="min-w-0">
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Collaborative Applications
+              </h3>
+
+              <p className="text-sm leading-7 mb-3">
+                Build collaborative editors, shared workspaces, whiteboards,
+                and productivity tools with seamless CRDT synchronization.
+              </p>
+
+              <ul className="list-disc pl-5 text-sm space-y-1">
+                <li>Collaborative note-taking tools</li>
+                <li>Shared project boards</li>
+                <li>Live document editing</li>
+                <li>Offline-first productivity apps</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* AI */}
+        <div className="border border-border rounded-xl p-5 bg-background transition-colors">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+              <Brain className="w-5 h-5 text-purple-500" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                AI & Edge Intelligence
+              </h3>
+
+              <p className="text-sm leading-7 mb-3">
+                Synchronize AI-generated data locally while enabling low-latency,
+                peer-to-peer AI workflows and distributed intelligence systems.
+              </p>
+
+              <ul className="list-disc pl-5 text-sm space-y-1">
+                <li>Offline AI copilots</li>
+                <li>Edge ML synchronization</li>
+                <li>Distributed AI agents</li>
+                <li>Local vector search systems</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* E-commerce */}
+        <div className="border border-border rounded-xl p-5 bg-background transition-colors">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
+              <ShoppingCart className="w-5 h-5 text-green-500" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                E-Commerce Platforms
+              </h3>
+
+              <p className="text-sm leading-7 mb-3">
+                Deliver fast storefront experiences with local reads,
+                background synchronization, and resilient offline carts.
+              </p>
+
+              <ul className="list-disc pl-5 text-sm space-y-1">
+                <li>Offline shopping carts</li>
+                <li>Inventory synchronization</li>
+                <li>Instant product browsing</li>
+                <li>Marketplace synchronization</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile */}
+        <div className="border border-border rounded-xl p-5 bg-background transition-colors">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+              <Smartphone className="w-5 h-5 text-orange-500" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Offline Mobile Applications
+              </h3>
+
+              <p className="text-sm leading-7 mb-3">
+                Create resilient mobile experiences for low-connectivity
+                environments using ZerithDB’s local-first architecture.
+              </p>
+
+              <ul className="list-disc pl-5 text-sm space-y-1">
+                <li>Field workforce systems</li>
+                <li>Travel applications</li>
+                <li>Healthcare platforms</li>
+                <li>Education tools</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Gaming */}
+        <div className="border border-border rounded-xl p-5 bg-background transition-colors">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-pink-500/10 flex items-center justify-center flex-shrink-0">
+              <Gamepad2 className="w-5 h-5 text-pink-500" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Multiplayer Gaming
+              </h3>
+
+              <p className="text-sm leading-7 mb-3">
+                Power decentralized multiplayer systems with conflict-free
+                synchronization and real-time peer communication.
+              </p>
+
+              <ul className="list-disc pl-5 text-sm space-y-1">
+                <li>Realtime multiplayer games</li>
+                <li>Game state synchronization</li>
+                <li>Peer-hosted lobbies</li>
+                <li>Distributed leaderboards</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Security */}
+        <div className="border border-border rounded-xl p-5 bg-background transition-colors">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0">
+              <Shield className="w-5 h-5 text-red-500" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Secure & Private Systems
+              </h3>
+
+              <p className="text-sm leading-7 mb-3">
+                End-to-end encrypted synchronization and decentralized identity
+                management make ZerithDB ideal for privacy-focused systems.
+              </p>
+
+              <ul className="list-disc pl-5 text-sm space-y-1">
+                <li>Secure messaging platforms</li>
+                <li>Encrypted collaboration tools</li>
+                <li>Identity-driven systems</li>
+                <li>Private communication networks</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ECOSYSTEM */}
+      <div className="pt-4">
+        <h2 className="text-2xl font-semibold text-foreground mb-3">
+          Ecosystem
+        </h2>
+
+        <p className="text-base leading-7 mb-6 max-w-3xl">
+          ZerithDB provides modular packages for building collaborative and
+          offline-first applications across multiple platforms.
+        </p>
+
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40">
+              <tr className="text-left">
+                <th className="px-4 py-3 font-semibold text-foreground">
+                  Package
+                </th>
+
+                <th className="px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
+                  Installation
+                </th>
+
+                <th className="px-4 py-3 font-semibold text-foreground">
+                  Description
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {[
+                ["zerithdb-sdk", "npm install zerithdb-sdk", "Main SDK"],
+                ["zerithdb-db", "npm install zerithdb-db", "IndexedDB adapter"],
+                ["zerithdb-sync", "npm install zerithdb-sync", "CRDT sync engine"],
+                ["zerithdb-network", "npm install zerithdb-network", "WebRTC layer"],
+                ["zerithdb-auth", "npm install zerithdb-auth", "Authentication"],
+                ["zerithdb-core", "npm install zerithdb-core", "Shared utilities"],
+                ["zerithdb-cli", "npm install -g zerithdb-cli", "CLI tooling"],
+                ["zerithdb-react", "npm install zerithdb-react", "React integration"],
+                ["zerithdb-python", "pip install zerithdb-python", "Python SDK"],
+              ].map((pkg, idx) => (
+                <tr
+                  key={idx}
+                  className="border-t border-border"
+                >
+                  <td className="px-4 py-3 font-mono text-blue-500">
+                    {pkg[0]}
+                  </td>
+
+                  <td className="px-4 py-3 font-mono hidden lg:table-cell">
+                    {pkg[1]}
+                  </td>
+
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {pkg[2]}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  ),
   Troubleshooting: (
     <div className="space-y-6 text-gray-600 leading-relaxed text-lg">
       <p>
@@ -328,30 +581,7 @@ const app = createApp({
 export default function DocsPage() {
   const [activeId, setActiveId] = useState("react");
   const [activeSection, setActiveSection] = useState("Quickstart");
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [copiedInstall, setCopiedInstall] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
   const activeFramework = FRAMEWORKS.find((f) => f.id === activeId) || FRAMEWORKS[0];
-
-  const handleCopy = (text: string, index: number) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 2000);
-  };
-
-  const handleCopyInstall = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedInstall(true);
-    setTimeout(() => setCopiedInstall(false), 2000);
-  };
-
-  const slugify = (text: string) => {
-    return text
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, "")
-      .replace(/\s+/g, "-");
-  };
 
   // Render specific content if available, otherwise generic text
   const renderContent = () => {
@@ -388,19 +618,8 @@ export default function DocsPage() {
               <Terminal className="w-5 h-5 text-muted-foreground" />
               Install the SDK
             </h2>
-            <div className="flex items-center justify-between bg-slate-950/95 dark:bg-slate-950 rounded-xl p-4 shadow-sm border border-slate-800/90 transition-colors duration-300">
-              <code className="text-sm font-mono text-slate-200">{activeFramework.install}</code>
-              <button
-                onClick={() => handleCopyInstall(activeFramework.install)}
-                className="p-2 hover:bg-slate-800 rounded-md transition-colors text-muted-foreground hover:text-foreground"
-                title="Copy command"
-              >
-                {copiedInstall ? (
-                  <Check className="w-4 h-4 text-green-400" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-              </button>
+            <div className="flex items-center justify-between bg-gray-900 rounded-xl p-4 shadow-sm border border-gray-800">
+              <CopyCodeBlock code={activeFramework.install} language="bash" />
             </div>
           </div>
 
@@ -429,22 +648,12 @@ export default function DocsPage() {
                       <span className="w-2.5 h-2.5 rounded-full bg-green-400"></span>
                       <span className="ml-2 font-medium">example.{activeFramework.language}</span>
                     </div>
-                    <button
-                      onClick={() => handleCopy(step.code, idx)}
-                      className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                    >
-                      {copiedIndex === idx ? (
-                        <Check className="w-3.5 h-3.5 text-green-600" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                      {copiedIndex === idx ? "Copied" : "Copy"}
-                    </button>
+                    
                   </div>
-                  <div className="p-6 bg-slate-950/95 dark:bg-slate-950 overflow-x-auto transition-colors duration-300">
-                    <pre className="text-[13px] font-mono text-slate-200 leading-relaxed">
-                      <code>{step.code}</code>
-                    </pre>
+                  <div className="p-6 bg-gray-900 overflow-x-auto">
+                    <CopyCodeBlock code={step.code} language="typescript" />
+                    
+                  
                   </div>
                 </div>
               </div>
@@ -615,9 +824,8 @@ export default function DocsPage() {
 
       <div className="flex-1 flex max-w-[1400px] mx-auto w-full">
         <aside
-          className={`fixed top-0 left-0 h-full w-72 bg-background border-r border-border z-50 transform transition-transform duration-300 lg:hidden ${
-            mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          className={`fixed top-0 left-0 h-full w-72 bg-background border-r border-border z-50 transform transition-transform duration-300 lg:hidden ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
         >
           <div className="flex items-center justify-between p-4 border-b border-border">
             <h2 className="font-semibold text-foreground">Documentation</h2>

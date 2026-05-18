@@ -1,7 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // zerithdb-core — Public API
 // ─────────────────────────────────────────────────────────────────────────────
-
 export { EventEmitter } from "./internal/event-emitter.js";
 export { ZerithDBError, ErrorCode, SchemaValidationError } from "zerithdb-errors";
 export { Logger } from "./internal/logger.js";
@@ -15,12 +14,14 @@ export type {
   AuthConfig,
   NetworkConfig,
   DebugConfig,
+  ConflictResolverConfig,
 } from "./types/config.js";
 
 export type {
   Document,
   DocumentId,
   CollectionName,
+  CollectionOptions,
   QueryFilter,
   QueryOptions,
   UpdateSpec,
@@ -51,15 +52,10 @@ export type {
   SyncState,
   AwarenessState,
   SyncPlugin,
+  MergePolicy,
+  ConflictResolution,
+  SyncLog,
   EphemeralPeerState,
   ActiveSpeakerState,
   VideoParticipantState,
 } from "./types/sync.js";
-
-export type {
-  GraphNode,
-  GraphEdge,
-  GraphNodeId,
-  EdgeLabel,
-  GraphTraversalResult,
-} from "./types/graph.js";

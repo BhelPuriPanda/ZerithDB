@@ -126,25 +126,15 @@ That's it. No `.env` files. No `docker-compose.yml`. No cloud accounts.
 
 ## Quick Start
 
-### Option 1: CLI (Recommended)
+### Installation
 
-If you're new here, follow these beginner friendly steps to get ZerithDB running on your machine:
-
-| Step | Action              | Command                           | What it does                            |
-| ---- | ------------------- | --------------------------------- | --------------------------------------- |
-| 1    | **Initialize**      | `npx zerithdb@latest init my-app` | Creates your project folder.            |
-| 2    | **Go to Directory** | `cd my-app`                       | Enters the folder you just created.     |
-| 3    | **Install**         | `npm install`                     | Gets all the tools needed for the app.  |
-| 4    | **Start App**       | `npm run dev`                     | Launches the app in your local browser. |
-
-> **Note:** You need [Node.js](https://nodejs.org/) installed to run these commands!
-
-### Option 2: Manual Install
+> **Note:** ZerithDB is currently in alpha and packages are not yet published to NPM. To use it, please clone the repository!
 
 ```bash
-pnpm add zerithdb-sdk
-# or
-npm install zerithdb-sdk
+git clone https://github.com/Zerith-Labs/ZerithDB.git
+cd ZerithDB
+pnpm install
+pnpm dev
 ```
 
 ### Minimal Setup
@@ -244,27 +234,26 @@ ZerithDB ephemeral sync, so they are broadcast immediately and never persisted.
 ```mermaid
 flowchart TB
   subgraph browser["Your Browser"]
-    direction LR
-    SDK["ZerithDB SDK"]
-    SYNC["Sync Engine\n(CRDT)"]
-    P2P["P2P Network Layer\n(WebRTC mesh)"]
-    SDK -->|writes| SYNC
-    SYNC -->|broadcast| P2P
+    SDK["zerithdb-sdk\nOrchestrates all packages"]
+    SYNC["zerithdb-sync\nYjs CRDT engine"]
+    NET["zerithdb-network\nWebRTC mesh"]
+    AUTH["zerithdb-auth\nEd25519 signing"]
+    SDK --> SYNC
+    SDK --> NET
+    SDK --> AUTH
+    AUTH -->|signs every delta| SYNC
+    SYNC -->|signed delta| NET
   end
 
   subgraph storage["Local Storage"]
-    DB["Local DB\n(IndexedDB)"]
+    DB["zerithdb-db\nIndexedDB via Dexie"]
   end
 
-  SDK -->|persist| DB
-  SYNC -->|flush| DB
+  SDK --> DB
+  SYNC <-->|delta updates| DB
 
-  SIG["Signaling Server\n(WS relay)"]
-  PEER["Other Peer Browser"]
-
-  P2P -->|handshake only| SIG
-  SIG -->|peer discovery| PEER
-  P2P <-.->|"direct P2P\n(after handshake)"| PEER
+  NET <-.->|ICE handshake only| SIG["Signaling Server\nDumb WebSocket relay\nNo data stored"]
+  NET <-->|Direct P2P after handshake| PEER["Other Peer Browser\nSame zerithdb stack"]
 ```
 
 The signaling server **never sees your data**. It only brokers the initial WebRTC handshake. After

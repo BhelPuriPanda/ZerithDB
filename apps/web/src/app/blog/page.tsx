@@ -126,9 +126,39 @@ export default function BlogPage() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="py-12 border-t border-border">
-        <div className="container mx-auto px-6 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Zerith Labs. All rights reserved.
+      <footer className="border-t border-gray-200 py-12 px-6 bg-white mt-auto">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 flex items-center justify-center">
+              <img src="/logo.svg" alt="ZerithDB Logo" className="w-full h-full" />
+            </div>
+            <span className="font-semibold text-gray-900 text-lg">ZerithDB</span>
+          </Link>
+
+          <div className="flex items-center gap-6 text-sm text-gray-500 font-medium">
+            <Link href="/docs" className="hover:text-gray-900 transition-colors">
+              Documentation
+            </Link>
+            <a
+              href="https://github.com/Zerith-Labs/ZerithDB"
+              className="hover:text-gray-900 transition-colors"
+            >
+              GitHub
+            </a>
+            <Link href="/blog" className="hover:text-gray-900 transition-colors">
+              Blog
+            </Link>
+            <Link href="/pricing" className="hover:text-gray-900 transition-colors">
+              Pricing
+            </Link>
+            <a href="https://discord.gg/MhvuDvzWfF" className="hover:text-gray-900 transition-colors">
+              Discord
+            </a>
+          </div>
+
+          <div className="text-sm text-gray-400">
+            © {new Date().getFullYear()} ZerithDB. Open Source.
+          </div>
         </div>
       </footer>
     </main>

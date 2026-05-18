@@ -10,6 +10,8 @@ export default defineConfig({
       "zerithdb-sdk": resolve(__dirname, "packages/sdk/src/index.ts"),
       "zerithdb-sync": resolve(__dirname, "packages/sync/src/index.ts"),
       "zerithdb-network": resolve(__dirname, "packages/network/src/index.ts"),
+      "zerithdb-errors": resolve(__dirname, "packages/errors/src/index.ts"),
+      "simple-peer": resolve(__dirname, "tests/mocks/simple-peer.ts"),
     },
   },
   test: {
@@ -26,7 +28,7 @@ export default defineConfig({
         statements: 70,
       },
     },
-    include: ["packages/*/src/**/*.test.ts", "tests/**/*.test.ts"],
+    include: ["packages/*/src/**/*.test.ts", "infra/*/src/**/*.test.ts", "tests/**/*.test.ts"],
     exclude: ["node_modules", "dist", ".next"],
   },
 });
