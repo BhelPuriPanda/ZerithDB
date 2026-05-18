@@ -50,6 +50,11 @@ export type InsertResult = {
   id: DocumentId;
 };
 
+export type QueryOptions = {
+  limit?: number;
+  offset?: number;
+};
+
 export type FindResult<T extends Record<string, any>> = {
   documents: Document<T>[];
   count: number;
