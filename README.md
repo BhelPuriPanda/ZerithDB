@@ -1,222 +1,174 @@
-<div align="center">
+# Open Source Contributions Archive
 
-<img src="./docs/assets/logo.svg" alt="ZerithDB" width="80" />
-
-# ZerithDB
-
-### **Build full-stack apps with ZERO backend. The browser is the server.**
-
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![CI](https://github.com/Zerith-Labs/ZerithDB/actions/workflows/ci.yml/badge.svg)](https://github.com/Zerith-Labs/ZerithDB/actions/workflows/ci.yml)
-[![Status](https://img.shields.io/badge/status-alpha-orange.svg)]()
-[![Discord](https://img.shields.io/badge/Discord-Join%20Us-7289da?logo=discord&logoColor=white)](https://discord.gg/MhvuDvzWfF)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-
-[**Documentation**](https://zerithdb.netlify.app/docs) ·
-[**Live Playground**](https://zerithdb.netlify.app/playground) ·
-[**Discord**](https://discord.gg/MhvuDvzWfF) · [**Roadmap**](ROADMAP.md)
-
-</div>
+> ⚠️ Note: The original upstream project/repository is no longer actively maintained.
+> This fork is preserved as an archive of my open-source contributions, implementations, and engineering work completed during GSSoC 2026.
 
 ---
 
-## What is ZerithDB?
+# Major Contribution — Centralized Schema Validation System
 
-ZerithDB is a **local-first, peer-to-peer application platform** that eliminates the need for
-traditional backend infrastructure. Think of it as Supabase — but instead of a centralized server,
-your users' browsers form a resilient, encrypted mesh network.
+## Overview
 
-- **No backend to manage.** No servers, no databases, no DevOps.
-- **Works offline.** All data lives locally first, syncs opportunistically.
-- **Conflict-free by design.** CRDT-based sync means merges just work.
-- **Private by default.** Public/private key identity — no passwords, no auth servers.
+Implemented a centralized schema validation system for ZerithDB collections with support for configurable validation modes and validator-agnostic runtime schema handling.
 
-> ZerithDB is in **alpha**. APIs will change. Feedback is our oxygen —
-> [open an issue](https://github.com/Zerith-Labs/ZerithDB/issues).
+This contribution introduced a shared validation architecture compatible with Zod-style `safeParse()` validators while preserving synchronization guarantees across distributed peers.
 
----
+## Key Contributions
 
-## The 30-Second Demo
+### Validation Infrastructure
 
-```typescript
-import { createApp } from "zerithdb-sdk";
+* Added generic validation abstractions:
 
-const app = createApp({ appId: "my-todo-app" });
+  * `SchemaLike`
+  * `SafeParseResult`
+  * `ValidationMode`
+  * `CollectionSchemaOptions`
 
-// Write data — persisted locally via IndexedDB
-await app.db("todos").insert({ text: "Ship ZerithDB v1", done: false });
+* Implemented validation modes:
 
-// Query with a MongoDB-like API
-const todos = await app.db("todos").find({ done: false });
+  * `strict`
+  * `warn`
+  * `off`
 
-// Enable real-time P2P sync — no server config needed
-app.sync.enable();
+* Added `SchemaValidationError` handling support.
 
-// Authenticate with a keypair (no passwords, no servers)
-const identity = await app.auth.signIn(); // generates or loads a keypair
-console.log(identity.publicKey); // "did:key:z6Mk..."
-```
+### Validator Registry
 
-That's it. No `.env` files. No `docker-compose.yml`. No cloud accounts.
+* Designed a centralized `ValidatorRegistry` shared across:
 
----
+  * `DbClient`
+  * `SyncEngine`
+  * React SDK integration
 
-## Features
+* Added:
 
-| Feature                | Description                                                                                           |
-| ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| 🗄️ **Local Database**  | IndexedDB-backed via Dexie. MongoDB-style query API. Reactive live queries.                           |
-| 🔄 **CRDT Sync**       | Yjs-powered conflict-free sync. Merge without servers. Works across browser tabs, devices, and peers. |
-| 🕸️ **P2P Network**     | WebRTC mesh via `simple-peer`. Minimal signaling server (only for initial handshake).                 |
-| 🔐 **Keychain Auth**   | Ed25519 keypair identity. Sign-in is `generateKey()`. No email, no OAuth, no passwords.               |
-| 📦 **Modular SDK**     | Tree-shakeable. Use only what you need. Works with React, Vue, Svelte, or vanilla JS.                 |
-| ⚡ **Zero Config CLI** | `npx zerithdb init` bootstraps a full project in seconds.                                             |
+  * schema conflict detection
+  * immutable schema registration
+  * remote-safe validation handling
+  * reference identity enforcement
 
----
+### Database Layer
 
-## Quick Start
+* Integrated validation into:
 
-### Option 1: CLI (Recommended)
+  * `insert`
+  * `insertMany`
+  * `update`
 
-```bash
-npx zerithdb@latest init my-app
-cd my-app
-npm run dev
-```
+* Added atomic validation for batch inserts before persistence.
 
-### Option 2: Manual Install
+### Synchronization Layer
 
-```bash
-pnpm add zerithdb-sdk
-# or
-npm install zerithdb-sdk
-```
+* Added safe remote validation flow preserving CRDT convergence guarantees.
+* Implemented non-blocking validation event propagation during synchronization.
 
-### Minimal Setup
+### React SDK
 
-```typescript
-import { createApp } from "zerithdb-sdk";
+* Added `useValidatedQuery()` hook with:
 
-const app = createApp({
-  appId: "my-app-unique-id", // namespaces your local DB
-  sync: {
-    signalingUrl: "wss://signal.zerithdb.dev", // optional: use our hosted relay
-    // or: signalingUrl: "ws://localhost:4000"  // self-hosted
-  },
-});
-```
+  * reactive validation state
+  * sync validation event handling
+  * schema-aware querying
+
+## Technical Highlights
+
+* Validator-agnostic architecture
+* Compatible with Zod and custom validators
+* Distributed-system-safe validation handling
+* Runtime schema consistency enforcement
+* React/HMR-safe schema identity management
 
 ---
 
-## Architecture in One Diagram
+# Major Contribution — HTTP Long-Polling Fallback for Signaling Transport
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                      Your Browser                        │
-│                                                          │
-│  ┌──────────┐   ┌──────────┐   ┌──────────────────────┐ │
-│  │ ZerithDB │   │   Sync   │   │   P2P Network Layer  │ │
-│  │   SDK    │──▶│  Engine  │──▶│  (WebRTC mesh)       │ │
-│  └──────────┘   │  (CRDT)  │   └──────────────────────┘ │
-│       │         └──────────┘            │               │
-│       ▼              │                  │               │
-│  ┌──────────┐        │          ┌───────▼──────┐        │
-│  │ Local DB │◀───────┘          │  Signaling   │        │
-│  │(IndexedDB│                   │  Server      │        │
-│  └──────────┘                   │  (WS relay)  │        │
-└──────────────────────────────── └──────────────┘ ───────┘
-                                         ▲
-                        Only for initial │ peer discovery
-                                         │
-                             ┌───────────┴──────────┐
-                             │   Other Peer Browser  │
-                             └──────────────────────┘
-```
+## Overview
 
-The signaling server **never sees your data**. It only brokers the initial WebRTC handshake. After
-that, peers communicate directly.
+Implemented a resilient signaling transport fallback system enabling automatic downgrade from WebSocket transport to HTTP long-polling in restricted network environments.
 
----
+This contribution improved reliability for decentralized peer synchronization and WebRTC signaling in environments where WebSocket upgrades are blocked by strict firewalls or proxy policies.
 
-## Packages
+## Key Contributions
 
-| Package                                | Version                                               | Description                       |
-| -------------------------------------- | ----------------------------------------------------- | --------------------------------- |
-| [`zerithdb-sdk`](packages/sdk)         | ![npm](https://img.shields.io/npm/v/zerithdb-sdk)     | Main developer-facing API         |
-| [`zerithdb-db`](packages/db)           | ![npm](https://img.shields.io/npm/v/zerithdb-db)      | IndexedDB adapter (Dexie wrapper) |
-| [`zerithdb-sync`](packages/sync)       | ![npm](https://img.shields.io/npm/v/zerithdb-sync)    | CRDT sync engine (Yjs)            |
-| [`zerithdb-network`](packages/network) | ![npm](https://img.shields.io/npm/v/zerithdb-network) | WebRTC P2P layer                  |
-| [`zerithdb-auth`](packages/auth)       | ![npm](https://img.shields.io/npm/v/zerithdb-auth)    | Keypair identity management       |
-| [`zerithdb-core`](packages/core)       | ![npm](https://img.shields.io/npm/v/zerithdb-core)    | Internal types, events, utilities |
-| [`zerithdb-cli`](packages/cli)         | ![npm](https://img.shields.io/npm/v/zerithdb-cli)     | `npx zerithdb init` CLI tool      |
+### Transport Abstraction
 
----
+* Designed and integrated a `SignalingTransport` abstraction layer.
 
-## CLI Reference
+Implemented:
 
-```bash
-# Scaffold a new ZerithDB app
-npx zerithdb init <app-name>
+* `WebSocketTransport`
+* `PollingTransport`
 
-# Add features interactively
-npx zerithdb add auth
-npx zerithdb add sync
+Refactored `NetworkManager` to support transport-independent signaling behavior.
 
-# Start a local signaling server for development
-npx zerithdb signal --port 4000
+### Automatic Fallback Logic
 
-# Generate TypeScript types from your schema
-npx zerithdb types --output ./src/db.types.ts
-```
+* Added automatic WebSocket → polling downgrade handling.
+* Implemented transport failure detection and retry flow.
+* Added downgrade warning event emission.
 
----
+### Signaling Server Enhancements
 
-## Roadmap
+Implemented HTTP polling endpoints:
 
-See [ROADMAP.md](ROADMAP.md) for the phased plan.
+* `POST /poll/join`
+* `GET /poll/messages`
+* `POST /poll/send`
+* `POST /poll/leave`
 
-Highlights:
+Added:
 
-- **v0.2** — React hooks (`useQuery`, `useLiveQuery`)
-- **v0.3** — Server-assisted sync for large datasets
-- **v0.4** — Fine-grained access control (capability tokens)
-- **v1.0** — Stable API, plugin system, ecosystem launch
+* per-session message queues
+* long-poll response holding
+* idle session cleanup
+* cross-transport relay support
+
+### SDK Integration
+
+* Added configurable transport selection:
+
+  * `auto`
+  * `websocket`
+  * `polling`
+
+* Added automatic HTTP URL derivation from WebSocket endpoints.
+
+## Technical Highlights
+
+* No Socket.IO dependency introduced
+* Native implementation using `fetch`, `http`, and `ws`
+* Cross-transport peer compatibility
+* Graceful degradation architecture
+* Distributed synchronization reliability improvements
+
+## Outcome
+
+Successfully merged into the main repository during GSSoC 2026 with the labels:
+
+* `quality: exceptional`
+* `level: critical`
+* `gssoc: approved`
 
 ---
 
-## Contributing
+# Contribution Focus Areas
 
-We are **actively looking for contributors**. ZerithDB is built in the open, and every PR matters.
+Across these contributions, the primary areas of work included:
 
-```bash
-git clone https://github.com/Zerith-Labs/ZerithDB.git
-cd zerithdb
-pnpm install
-pnpm dev
-```
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow, coding guidelines, and how to find
-good first issues.
-
-Good places to start:
-
-- Issues labeled
-  [`good-first-issue`](https://github.com/Zerith-Labs/ZerithDB/issues?q=label%3Agood-first-issue)
-- Issues labeled
-  [`help-wanted`](https://github.com/Zerith-Labs/ZerithDB/issues?q=label%3Ahelp-wanted)
+* Distributed systems
+* Runtime schema validation
+* Synchronization architecture
+* Networking infrastructure
+* Transport abstraction layers
+* TypeScript SDK development
+* React integration
+* Validation-safe replication flows
+* Resilient peer-to-peer communication systems
 
 ---
 
-## Community
+# About
 
-|                |                                                        |
-| -------------- | ------------------------------------------------------ |
-| 💬 **Discord** | [discord.gg/MhvuDvzWfF](https://discord.gg/MhvuDvzWfF) |
+These contributions were completed as part of my open-source learning journey and participation in GSSoC 2026.
 
----
-
-## License
-
-Apache 2.0 — see [LICENSE](LICENSE).
-
-Built with ❤️ by the ZerithDB community.
+The purpose of this archive is to preserve the technical work, implementation details, and engineering contributions developed during the project lifecycle.
